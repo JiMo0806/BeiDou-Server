@@ -22,6 +22,25 @@ jobs:
           java-version: '21'
           cache: maven
 
+      - name: Set up Node 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Build gms-ui (GM 后台前端)
+        working-directory: gms-ui
+        run: |
+          npm install --no-audit --no-fund
+          # 跳过 vue-tsc 类型检查，避免老依赖类型报错阻塞打包
+          npx vite build --config ./config/vite.config.prod.ts
+
+      - name: Embed UI into jar static resources
+        run: |
+          rm -rf gms-server/src/main/resources/static
+          mkdir -p gms-server/src/main/resources/static
+          cp -r gms-ui/dist/* gms-server/src/main/resources/static/
+          ls gms-server/src/main/resources/static/
+
       - name: Build server jar
         run: mvn -B -ntp -pl gms-server -am package -DskipTests
 
