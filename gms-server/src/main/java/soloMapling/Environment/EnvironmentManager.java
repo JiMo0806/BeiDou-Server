@@ -94,6 +94,9 @@ public class EnvironmentManager {
     private static final int OPQ_LOBBY = 200080101;
 
     public static void environmentLoadStartup() {
+        // 生成/读取 bot-config.properties（独立持久化配置，NAS 上位于挂载目录，改完重启生效）
+        BotConfigFile.createTemplateIfAbsent();
+
         // EquipMetadataCache + DesirableEquipList are server data, loaded during
         // Server.init() alongside the other WZ-derived data - guaranteed ready
         // before any player can trigger this.
@@ -492,11 +495,14 @@ public class EnvironmentManager {
      * roughly 2500 bots across them; the default 0.35 lands the whole-world
      * population near the 1000-bot target for modest NAS hardware. Ambient
      * waves 1-7 (fillers, FM merchants, casino) stay unscaled to preserve the
-     * hand-polished feel. Adjust via game_config: server/bot_population_scale
+     * hand-polished feel. Adjust via 服务器工作目录的 bot-config.properties
+     * (bot_population_scale，优先) or game_config: server/bot_population_scale
      * (1.0 restores full SoloMapling density).
      */
     private static int scaleCount(int n) {
-        double scale = GameConfig.get("server", "bot_population_scale", 0.35);
+        // bot-config.properties（服务器工作目录）优先于数据库 game_config，方便 NAS 上单独调整
+        double scale = BotConfigFile.getDouble("bot_population_scale",
+                GameConfig.get("server", "bot_population_scale", 0.35));
         if (scale >= 1.0) {
             return n;
         }
