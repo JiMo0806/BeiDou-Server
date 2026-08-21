@@ -58,6 +58,7 @@ import org.gms.net.server.task.CharacterHpDecreaseTask;
 import org.gms.net.server.task.FamilyDailyResetTask;
 import org.gms.net.server.task.FishingTask;
 import org.gms.net.server.task.HiredMerchantTask;
+import soloMapling.Environment.BotConfigFile;
 import org.gms.net.server.task.MapOwnershipTask;
 import org.gms.net.server.task.MountTirednessTask;
 import org.gms.net.server.task.PartySearchTask;
@@ -641,7 +642,10 @@ public class World {
     }
 
     public int getWorldCapacityStatus() {
-        int worldCap = getChannelsSize() * GameConfig.getServerInt("channel_capacity");
+        // bot-config.properties（服务器工作目录）优先于数据库 game_config：
+        // bot 也计入在线人数，容量不足会导致玩家登录报"所选择的游戏区已经人满"
+        int worldCap = getChannelsSize() * BotConfigFile.getInt("channel_capacity",
+                GameConfig.getServerInt("channel_capacity"));
         int num = players.getSize();
 
         int status;
