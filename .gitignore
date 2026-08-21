@@ -6,7 +6,9 @@ target/
 .vscode
 
 # keep upstream's workflow ignore but allow our CI workflows
-.github
+# (note: ".github/*" + negation works; bare ".github" would block
+# re-inclusion because git never descends into ignored directories)
+.github/*
 !.github/ISSUE_TEMPLATE
 !.github/workflows
 
