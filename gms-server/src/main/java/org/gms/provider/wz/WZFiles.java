@@ -45,8 +45,11 @@ public enum WZFiles {
     }
 
     private static boolean isNonEmptyDirectory(Path dir) {
-        try (java.util.stream.Stream<Path> stream = Files.list(dir)) {
-            return stream.findAny().isPresent();
+        // 递归查找 .xml：v1.12 镜像的语言版目录可能是"只含空壳子目录"的空目录
+        // （如 wz-zh-CN/Map.wz/Map/ 内没有任何 xml），只查一层会误判为有数据。
+        // walk 是惰性的，找到第一个 xml 即短路返回。
+        try (java.util.stream.Stream<Path> stream = Files.walk(dir)) {
+            return stream.anyMatch(p -> p.getFileName().toString().endsWith(".xml"));
         } catch (IOException e) {
             return false;
         }
