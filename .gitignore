@@ -2,10 +2,13 @@
 .idea/*
 !.idea/codeStyles/
 *.iml
-/target
+target/
+.vscode
+
+# keep upstream's workflow ignore but allow our CI workflows
 .github
 !.github/ISSUE_TEMPLATE
-.vscode
+!.github/workflows
 
 # build files
 /build/

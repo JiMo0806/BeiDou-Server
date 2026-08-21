@@ -32,6 +32,7 @@ import org.gms.constants.id.ItemId;
 import org.gms.constants.inventory.ItemConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import soloMapling.Casino.CasinoChipConfig;
 import org.gms.util.DatabaseConnection;
 import org.gms.util.PacketCreator;
 
@@ -216,8 +217,14 @@ public class Shop {
                 quantity = getSellingQuantity(item, quantity);
                 InventoryManipulator.removeFromSlot(c, type, (byte) slot, quantity, false);
 
-                ItemInformationProvider ii = ItemInformationProvider.getInstance();
-                int recvMesos = ii.getPrice(item.getItemId(), quantity);
+                int recvMesos;
+                // Casino chip override: sell price = buy price (lossless exchange)
+                if (CasinoChipConfig.isCasinoChip(item.getItemId())) {
+                    recvMesos = CasinoChipConfig.getChipPrice(item.getItemId()) * quantity;
+                } else {
+                    ItemInformationProvider ii = ItemInformationProvider.getInstance();
+                    recvMesos = ii.getPrice(item.getItemId(), quantity);
+                }
                 if (recvMesos > 0) {
                     c.getPlayer().gainMeso(recvMesos, false);
                 }

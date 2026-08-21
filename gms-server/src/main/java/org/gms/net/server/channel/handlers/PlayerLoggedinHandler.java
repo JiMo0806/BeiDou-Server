@@ -63,6 +63,7 @@ import org.slf4j.LoggerFactory;
 import org.gms.scripting.event.EventInstanceManager;
 import org.gms.server.life.MobSkill;
 import org.gms.service.NoteService;
+import soloMapling.ArtificialPlayer.BotHelpers;
 import org.gms.util.DatabaseConnection;
 import org.gms.util.PacketCreator;
 import org.gms.util.Pair;

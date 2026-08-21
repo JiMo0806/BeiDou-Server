@@ -84,6 +84,11 @@ public class ByteBufInPacket implements InPacket {
     }
 
     @Override
+    public InPacket copy() {
+        return new ByteBufInPacket(byteBuf.copy());
+    }
+
+    @Override
     public boolean equals(Object o) {
         return o instanceof ByteBufInPacket other && byteBuf.equals(other.byteBuf);
     }

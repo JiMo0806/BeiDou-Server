@@ -141,8 +141,11 @@ public class CommandService {
 
     private Command getCommandInstance(CommandInfoDO commandInfoDO) {
         try {
-            Class<?> aClass = Class.forName("org.gms.client.command.commands.gm" + commandInfoDO.getDefaultLevel()
-                    + "." + commandInfoDO.getClazz());
+            // SoloMapling: fully-qualified clazz (e.g. "soloMapling.commands.BotMoveCommand") loads directly
+            String className = commandInfoDO.getClazz().contains(".")
+                    ? commandInfoDO.getClazz()
+                    : "org.gms.client.command.commands.gm" + commandInfoDO.getDefaultLevel() + "." + commandInfoDO.getClazz();
+            Class<?> aClass = Class.forName(className);
             Command command = (Command) aClass.getDeclaredConstructor().newInstance();
             command.setRank(commandInfoDO.getLevel());
             return command;

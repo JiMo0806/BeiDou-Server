@@ -88,6 +88,9 @@ import org.gms.util.*;
 import org.gms.util.packets.WeddingPackets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import soloMapling.ArtificialPlayer.BotTier;
+import soloMapling.server.EventMessageSystem.EventBus;
+import soloMapling.server.EventMessageSystem.EventFactory;
 
 import java.awt.*;
 import java.lang.ref.WeakReference;
@@ -107,6 +110,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static java.util.concurrent.TimeUnit.*;
+import static soloMapling.server.MapleMessengerConsole.disconnectUser;
 
 public class Character extends AbstractCharacterObject {
     private static final Logger log = LoggerFactory.getLogger(Character.class);
@@ -488,6 +492,7 @@ public class Character extends AbstractCharacterObject {
     @Setter
     @Getter
     private boolean chasing = false;
+    private BotTier botTier = BotTier.getDefaultTier(); // Initialize with default tier (C)
     private float mobExpRate = -1;
 
     @Getter
@@ -530,7 +535,7 @@ public class Character extends AbstractCharacterObject {
     }
 
 
-    private Character() {
+    public Character() {
         super.setListener(new CharacterListener(this));
         useCS = false;
         setStance(0);
@@ -607,6 +612,18 @@ public class Character extends AbstractCharacterObject {
 
     public boolean isLoggedInWorld() {
         return this.isLoggedIn() && !this.isAwayFromWorld();
+    }
+
+    public boolean isLoggedinWorld() {
+        return this.isLoggedIn() && !this.isAwayFromWorld();
+    }
+
+    public boolean isLoggedIn() {
+        return loggedIn;
+    }
+
+    public boolean isLoggedin() {
+        return loggedIn;
     }
 
     public boolean isAwayFromWorld() {
@@ -2977,6 +2994,7 @@ public class Character extends AbstractCharacterObject {
             if (show) {
                 announceExpGain(gain, equip, party, inChat, white);
             }
+            int levelBefore = level;
             while (exp.get() >= ExpTable.getExpNeededForLevel(level)) {
                 levelUp(true);
 
@@ -2997,6 +3015,12 @@ public class Character extends AbstractCharacterObject {
                     break;
                 }
                 if (GameConfig.getServerBoolean("use_level_up_protect")) break;
+            }
+            if (level > levelBefore) {
+                // SoloMapling: announce the level-up so nearby bots can react (congrats). Published
+                // once at the final level to avoid a burst on multi-level gains. Bots are NOT excluded
+                // here (unlike MAP_ENTERED) - we want bot level-ups celebrated too.
+                EventBus.getInstance().publish(EventFactory.createLevelUpEvent(this));
             }
 
             if (leftover > 0) {
@@ -4884,6 +4908,37 @@ public class Character extends AbstractCharacterObject {
         return localstr;
     }
 
+    // ── GCMoveSystem (GreenCat dynamic movement): total move-speed / jump stat.
+    // base 100 + equip bonuses + active buff. Feeds BotMovementProfile.fromCharacter
+    // which selects the baked nav-graph profile bucket.
+    public int getTotalMoveSpeedStat() {
+        int total = 100;
+        for (Item item : getInventory(InventoryType.EQUIPPED)) {
+            if (item instanceof Equip equip) {
+                total += equip.getSpeed();
+            }
+        }
+        Integer speedBuff = getBuffedValue(BuffStat.SPEED);
+        if (speedBuff != null) {
+            total += speedBuff;
+        }
+        return Math.max(1, total);
+    }
+
+    public int getTotalJumpStat() {
+        int total = 100;
+        for (Item item : getInventory(InventoryType.EQUIPPED)) {
+            if (item instanceof Equip equip) {
+                total += equip.getJump();
+            }
+        }
+        Integer jumpBuff = getBuffedValue(BuffStat.JUMP);
+        if (jumpBuff != null) {
+            total += jumpBuff;
+        }
+        return Math.max(1, total);
+    }
+
     public int getTotalDex() {
         return localdex;
     }
@@ -5119,7 +5174,7 @@ public class Character extends AbstractCharacterObject {
         closeMiniGame(true);
         closeRPS();
         closeHiredMerchant(false);
-        closePlayerMessenger();
+        // closePlayerMessenger(); // # Madara Note - Prevent Messenger from Disconnecting on Map change
 
         client.closePlayerScriptInteractions();
         resetPlayerAggro();
@@ -5209,6 +5264,7 @@ public class Character extends AbstractCharacterObject {
         w.leaveMessenger(m.getId(), new MessengerCharacter(this, this.getMessengerPosition()));
         this.setMessenger(null);
         this.setMessengerPosition(4);
+        disconnectUser(getId());
     }
 
     public Pet[] getPets() {
@@ -6758,7 +6814,7 @@ public class Character extends AbstractCharacterObject {
         enableActions();
     }
 
-    private void unsitChairInternal() {
+    public void unsitChairInternal() {
         int chairid = chair.get();
         if (chairid >= 0) {
             if (ItemConstants.isFishingChair(chairid)) {
@@ -6798,7 +6854,7 @@ public class Character extends AbstractCharacterObject {
         }
     }
 
-    private void setChair(int chair) {
+    public void setChair(int chair) {
         this.chair.set(chair);
     }
 
@@ -9303,6 +9359,10 @@ public class Character extends AbstractCharacterObject {
         return autoBan;
     }
 
+    public AutobanManager getAutobanManager() {
+        return autoBan;
+    }
+
     public void setAutoBanManager(AutobanManager autoBan) {
         this.autoBan = autoBan;
     }
@@ -9959,5 +10019,19 @@ public class Character extends AbstractCharacterObject {
      */
     public void enableActions() {
         sendPacket(PacketCreator.enableActions());
+    }
+
+    /**
+     * Sets the bot tier for this character.
+     */
+    public void setTier(BotTier newTier) {
+        this.botTier = BotTier.TierManager.safeTierSet(this.botTier, newTier);
+    }
+
+    /**
+     * Gets the current bot tier.
+     */
+    public BotTier getTier() {
+        return BotTier.TierManager.getSafeTier(botTier);
     }
 }

@@ -35,8 +35,11 @@ import org.gms.net.server.world.PartyCharacter;
 import org.gms.net.server.world.PartyOperation;
 import org.gms.net.server.world.World;
 import org.gms.util.PacketCreator;
+import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyQueue;
 
 import java.util.List;
+
+import static soloMapling.ArtificialPlayer.BotHelpers.isBot;
 
 public final class PartyOperationHandler extends AbstractPacketHandler {
 
@@ -97,6 +100,9 @@ public final class PartyOperationHandler extends AbstractPacketHandler {
                         if (party.getMembers().size() < 6) {
                             if (InviteCoordinator.createInvite(InviteType.PARTY, player, party.getId(), invited.getId())) {
                                 invited.sendPacket(PacketCreator.partyInvite(player));
+                                if (isBot(invited)) {
+                                    BotPartyQueue.getInstance().addPartyInvite(invited, player, party.getId());
+                                }
                             } else {
                                 c.sendPacket(PacketCreator.partyStatusMessage(22, invited.getName()));
                             }

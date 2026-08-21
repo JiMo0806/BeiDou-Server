@@ -6,7 +6,7 @@ app:
   
 jwt:
   # secret 生产环境请自行生成 UUID
-  secret: "50da066e-6080-40f5-a173-86bd27d4f674"
+  secret: "81a5cd39-c4a1-f8a2-1832-a32e5d85c470"
   # token 过期时间（毫秒）默认 30min
   duration: 1800000
 
@@ -18,6 +18,13 @@ mybatis-flex:
       url: jdbc:mysql://localhost:3306/beidou?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
       username: root
       password: root
+      # Bot-heavy server: parallel bot spawns hold connections while waiting on
+      # the MapManager map-load lock; the default pool of 8 deadlocks there.
+      # BotGeneration caps concurrent spawns at 6, this headroom keeps map
+      # loading + normal player traffic connection-hungry-free. max-wait makes
+      # any future exhaustion fail loudly instead of hanging forever.
+      max-active: 32
+      max-wait: 15000
   global-config:
     print-banner: false
 
@@ -26,10 +33,10 @@ springdoc:
   # 生产环境需要关闭这2个参数
   api-docs:
     # 是否开启OpenApi，如果为false，则SwaggerUI也会被禁用
-    enabled: true
+    enabled: false
   swagger-ui:
     # 是否开启SwaggerUI，依赖OpenApi的开启
-    enabled: true
+    enabled: false
 
 spring:
   flyway:
