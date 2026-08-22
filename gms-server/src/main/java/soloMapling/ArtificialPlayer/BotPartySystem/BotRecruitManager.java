@@ -3,11 +3,13 @@ package soloMapling.ArtificialPlayer.BotPartySystem;
 import org.gms.client.Character;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotSM;
+import soloMapling.ArtificialPlayer.BotTypeManager;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static soloMapling.ArtificialPlayer.BotHelpers.isBot;
 import static soloMapling.DebugUtilities.debugprint;
 import static soloMapling.server.SoloMaplingUtilities.random;
 
@@ -24,6 +26,14 @@ public class BotRecruitManager {
     public static final int FOLLOWER_CAP = 30;
     public static final double SOCIAL_ACCEPT_CHANCE = 0.70;
     public static final double TRAINING_ACCEPT_CHANCE = 0.80;
+    // Chance a companion-type bot says yes to a COLD party invite (no prior dialogue/arming).
+    public static final double COLD_ACCEPT_CHANCE = 0.80;
+
+    // Bot types that may be recruited straight from a cold party invite: they convert into a
+    // FollowerBot that follows the inviter across maps and fights alongside them. Role-locked
+    // bots (merchants, hosts, dealers, JQ runners, OPQ) politely decline instead.
+    private static final Set<String> COLD_INVITE_TYPES =
+            Set.of("SocialBot", "TrainingBot", "TownWandererBot", "HenesysBot");
     // Kept comfortably above the InviteCoordinator's ~3-min silent timeout so the accept window no
     // longer races it - the coordinator now backstops staleness (a late accept just NOT_FOUNDs
     // harmlessly). This also keeps isArmed() true across the whole realistic invite window, which
@@ -76,8 +86,9 @@ public class BotRecruitManager {
     }
 
     // Per-tick invite drain for recruit-enabled bots. BotPartyQueue is last-wins per bot, so a
-    // pending invite must always be answered: accept if it's the armed inviter (id match),
-    // politely reject everything else (frees the slot; the inviter gets the normal declined notice).
+    // pending invite must always be answered: accept if it's the armed inviter (id match).
+    // An UNARMED invite from a real player is a cold invite - leave it pending (NONE): the central
+    // delayed handler (handleColdInvite) owns those and will accept-then-convert or decline.
     public static InvitePoll pollInvites(Character botChr) {
         if (!BotPartyQueue.getInstance().hasPendingInvite(botChr)) {
             return InvitePoll.NONE;
@@ -102,8 +113,79 @@ public class BotRecruitManager {
             }
             return InvitePoll.NONE; // coordinator-side expiry; queue already cleared by the accept call
         }
+        // Cold invite: real player, no prior dialogue. Hand it to the central delayed handler so
+        // EVERY bot type (not just recruit-enabled ones) gets an answer - don't reject it here.
+        if (inviter != null && !isBot(inviter)) {
+            return InvitePoll.NONE;
+        }
         BotPartyCommands.botRejectPartyInvite(botChr);
         return InvitePoll.REJECTED;
+    }
+
+    // A real player just cold-invited this bot (no prior dialogue). If the bot's own recruit flow is
+    // armed it answers on its tick and we stay out of the way; otherwise a short human-like delay
+    // later we either accept (companion types: join + become a FollowerBot that follows the inviter
+    // across maps and fights alongside them) or politely decline. Role-locked bots always decline.
+    public static void handleColdInvite(Character botChr, Character inviter) {
+        if (botChr == null || inviter == null || isBot(inviter)) {
+            return;
+        }
+        if (isArmed(botChr.getId())) {
+            return; // the armed flow answers this invite on the bot's own tick
+        }
+        int botId = botChr.getId();
+        Thread.ofVirtual().name("bot-cold-invite-" + botId).start(() -> {
+            try {
+                Thread.sleep(1200 + random.nextInt(1600)); // think about it like a human would
+            } catch (InterruptedException e) {
+                return;
+            }
+            try {
+                answerColdInvite(botChr, inviter);
+            } catch (Exception e) {
+                debugprint("handleColdInvite: failed for " + botChr.getName() + ": " + e);
+            }
+        });
+    }
+
+    private static void answerColdInvite(Character botChr, Character inviter) {
+        BotPartyQueue.PartyInviteEntry entry = BotPartyQueue.getInstance().getPartyInvite(botChr);
+        if (entry == null) {
+            return; // already answered on the bot's own tick (armed flow / OPQ / loyal follower)
+        }
+        // Last-wins queue: only answer if OUR invite is still the live one (a later invite from
+        // someone else replaced it - that player's own cold-invite thread owns the answer now).
+        Character queued = entry.getInviter();
+        if (queued == null || queued.getId() != inviter.getId()) {
+            return;
+        }
+        BotSM bot = CharacterStorage.getAllBots().get(botChr.getId());
+        if (bot == null) {
+            return;
+        }
+        if (botChr.getParty() != null || bot.getState() == BotSM.BotState.TRADING) {
+            BotPartyCommands.botRejectPartyInvite(botChr);
+            return;
+        }
+        boolean companion = COLD_INVITE_TYPES.contains(bot.getBotType());
+        boolean wantsJoin = companion
+                && activeFollowerCount() < FOLLOWER_CAP
+                && botChr.getLevel() >= 10
+                && random.nextDouble() < COLD_ACCEPT_CHANCE;
+        if (!wantsJoin) {
+            BotPartyCommands.botRejectPartyInvite(botChr);
+            DECLINED_UNTIL.put(pairKey(botChr.getId(), inviter.getId()),
+                    System.currentTimeMillis() + DECLINE_COOLDOWN_MS); // re-ask later for a fresh roll
+            debugprint("answerColdInvite: " + botChr.getName() + " declined " + inviter.getName()
+                    + (companion ? " (rolled no)" : " (role-locked type " + bot.getBotType() + ")"));
+            return;
+        }
+        if (BotPartyCommands.botAcceptPartyInvite(botChr)) {
+            setPendingLeader(botChr.getId(), inviter.getId());
+            BotTypeManager.convertBotType(botChr, BotTypeManager.BotType.FOLLOWER_BOT);
+            debugprint("answerColdInvite: " + botChr.getName() + " joined " + inviter.getName()
+                    + " and became a follower");
+        }
     }
 
     // A party invite for this bot just landed in the queue. Wake its macro brain so the next tick

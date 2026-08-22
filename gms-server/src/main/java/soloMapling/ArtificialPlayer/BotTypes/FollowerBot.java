@@ -3,6 +3,7 @@ package soloMapling.ArtificialPlayer.BotTypes;
 import org.gms.client.Character;
 import org.gms.net.server.world.Party;
 import org.gms.net.server.world.PartyCharacter;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
 import soloMapling.ArtificialPlayer.BotDialogueHandler;
 import soloMapling.ArtificialPlayer.BotOptionMenu;
 import soloMapling.ArtificialPlayer.BotSM;
@@ -172,6 +173,13 @@ public class FollowerBot extends BotSM {
             // the freshly resolved leader Character makes the new session current).
             GCMovement.follow(chr, leader);
         }
+        // Fight alongside the leader: only while sharing the leader's map, so a cross-map catch-up
+        // run isn't stalled by mobs along the way. BotAttackDriver only sends attack packets (it
+        // never moves the bot), so it can't fight the follow engine for the movement lock; its own
+        // per-bot cooldown table gates the rate.
+        if (chr.getMapId() == leader.getMapId()) {
+            BotAttackDriver.botAttack(chr);
+        }
     }
 
     private void doLeaderLost() {
@@ -291,6 +299,7 @@ public class FollowerBot extends BotSM {
         Character chr = getChr();
         if (chr != null) {
             BotRecruitManager.clearArmed(chr.getId()); // pending station/leader handoffs survive on purpose
+            BotAttackDriver.clearBot(chr.getId()); // release the attack cooldown table entry
             GCMovement.disable(chr); // ends the follow session + releases the shared movement lock
         }
         super.stopScheduledTask();

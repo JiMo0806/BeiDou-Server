@@ -36,6 +36,7 @@ import org.gms.net.server.world.PartyOperation;
 import org.gms.net.server.world.World;
 import org.gms.util.PacketCreator;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyQueue;
+import soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager;
 
 import java.util.List;
 
@@ -102,6 +103,9 @@ public final class PartyOperationHandler extends AbstractPacketHandler {
                                 invited.sendPacket(PacketCreator.partyInvite(player));
                                 if (isBot(invited)) {
                                     BotPartyQueue.getInstance().addPartyInvite(invited, player, party.getId());
+                                    // Cold invite: companion-type bots accept after a human-like delay
+                                    // and convert into followers (cross-map follow + fights alongside).
+                                    BotRecruitManager.handleColdInvite(invited, player);
                                 }
                             } else {
                                 c.sendPacket(PacketCreator.partyStatusMessage(22, invited.getName()));
