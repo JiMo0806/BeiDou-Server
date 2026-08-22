@@ -470,13 +470,13 @@ public class SocialBot extends BotSM {
         String playerName = player.getName();
         String mapName = chr.getMap().getMapName();
         Thread.ofVirtual().name("bot-llm-" + chr.getId()).start(() -> {
-            String reply;
+            String raw;
             try {
-                reply = BotLLMService.chat(chr.getId(), chr, playerName, mapName, content);
+                raw = BotLLMService.chat(chr.getId(), chr, playerName, mapName, content);
             } catch (Exception e) {
-                reply = null;
+                raw = null;
             }
-            if (reply == null) {
+            if (raw == null) {
                 // 回落本地台词（和 WhatsUp 分支同款节拍）
                 String line = getRandomLine("WhatsUp", player);
                 int emote = getRandomEmote("WhatsUp");
@@ -489,6 +489,7 @@ public class SocialBot extends BotSM {
                 showInteractiveOptions(player);
                 return;
             }
+            final String reply = raw;
             BotTiming.Chain chain = BotTiming.chain()
                     .stopUnless(() -> isConversationWith(player))
                     .pauseRandom(1500, 3000)
