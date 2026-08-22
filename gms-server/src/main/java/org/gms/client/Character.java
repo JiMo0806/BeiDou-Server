@@ -635,6 +635,14 @@ public class Character extends AbstractCharacterObject {
         return awayFromWorld.get();
     }
 
+    // SM NOTE: bots log in through BotGeneration.addBotToServer(), never PlayerLoggedinHandler,
+    // so nothing ever clears the awayFromWorld flag for them. With awayFromWorld stuck on true,
+    // the ghost-player cleanup (MapleMap.cleanupGhostPlayers) evicts every bot from its map the
+    // moment a real player walks in — silently breaking name-call chat and party follow.
+    public void setBotSpawnedToWorld() {
+        awayFromWorld.set(false);
+    }
+
     public void setEnteredChannelWorld() {
         awayFromWorld.set(false);
         client.getChannelServer().removePlayerAway(id);

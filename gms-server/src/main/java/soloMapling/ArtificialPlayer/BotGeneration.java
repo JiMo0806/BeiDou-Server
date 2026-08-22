@@ -253,6 +253,7 @@ public class BotGeneration {
         channel.addPlayer(fakechar);
 //        World world = Server.getInstance().getWorld(BotSM.GameConstants.WORLD_SCANIA);
         world.getPlayerStorage().addPlayer(fakechar);
+        fakechar.setBotSpawnedToWorld(); // SM NOTE: clear awayFromWorld, else ghost cleanup evicts the bot on next player visit
     }
 
     public static void spawnBotFm(Character fakechar, Point pt) {

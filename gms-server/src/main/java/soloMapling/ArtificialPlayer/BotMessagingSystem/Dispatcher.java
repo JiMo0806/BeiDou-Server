@@ -62,6 +62,27 @@ public class Dispatcher implements Runnable {
         }
     }
 
+    // SM NOTE: party chat arrives through MultiChatHandler, never GeneralChatHandler, so the
+    // "primary" queue never sees it. MultiChatHandler routes it here instead: identical
+    // matching rules as processMessages(), except the bot candidates come from the party
+    // roster — party members may be on a different map than the sender, so we can't rely on
+    // message.getMap().getCharacters() like general chat does.
+    public void processPartyMessage(ChatMessage message, Collection<Character> partyBots) {
+        try {
+            final int[] botToCall = new int[1];
+
+            boolean characterFound = checkIfCharacterOnMap(partyBots, message, botToCall);
+
+            if (characterFound) {
+                handleBotRunning(botToCall, message);
+            } else {
+                handleMessageWithNoBotName(message);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     private boolean checkIfCharacterOnMap(Collection<Character> chars_on_map, ChatMessage message, int[] botToCall) {
         boolean characterFound = false;
         for (Character character : chars_on_map) {

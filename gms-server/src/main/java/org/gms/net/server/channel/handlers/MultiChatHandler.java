@@ -27,11 +27,18 @@ import org.gms.client.autoban.AutobanFactory;
 import org.gms.net.AbstractPacketHandler;
 import org.gms.net.packet.InPacket;
 import org.gms.net.server.Server;
+import org.gms.net.server.world.PartyCharacter;
 import org.gms.net.server.world.World;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.gms.server.ChatLogger;
 import org.gms.util.PacketCreator;
+import soloMapling.ArtificialPlayer.BotHelpers;
+import soloMapling.ArtificialPlayer.BotMessagingSystem.ChatMessage;
+import soloMapling.ArtificialPlayer.BotMessagingSystem.Dispatcher;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public final class MultiChatHandler extends AbstractPacketHandler {
     private static final Logger log = LoggerFactory.getLogger(MultiChatHandler.class);
@@ -63,6 +70,24 @@ public final class MultiChatHandler extends AbstractPacketHandler {
         } else if (type == 1 && player.getParty() != null) {
             world.partyChat(player.getParty(), chattext, player.getName());
             ChatLogger.log(c, "Party", chattext);
+
+            // SM NOTE: party chat never flows through GeneralChatHandler, so bots in the party
+            // would never hear it (bot clients receive no packets). Route it into the bot
+            // messaging pipeline instead — bots are located via the party roster since party
+            // members may be on a different map than the sender.
+            List<Character> partyBots = new ArrayList<>();
+            for (PartyCharacter partychar : player.getParty().getMembers()) {
+                if (partychar.getId() == player.getId()) {
+                    continue;
+                }
+                Character chr = world.getPlayerStorage().getCharacterByName(partychar.getName());
+                if (chr != null && BotHelpers.isBot(chr)) {
+                    partyBots.add(chr);
+                }
+            }
+            if (!partyBots.isEmpty()) {
+                Dispatcher.getInstance().processPartyMessage(new ChatMessage(player, chattext), partyBots);
+            }
         } else if (type == 2 && player.getGuildId() > 0) {
             Server.getInstance().guildChat(player.getGuildId(), player.getName(), player.getId(), chattext);
             ChatLogger.log(c, "Guild", chattext);
