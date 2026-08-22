@@ -1,0 +1,742 @@
+# TrainingBot dialogue — roaming grinder bot. Ambient flavor, not quest text.
+# Nodes delivered via the context path (executeBotContextDialogue); context tokens:
+#   self:   {MAP} {REGION} {MOB} {DROP} {LEVEL}
+#   player: {PLAYER_NAME} {PLAYER_JOB} {PLAYER_WEAPON} {PLAYER_GEAR} {PLAYER_PET} {PLAYER_GUILD}
+# Every token-bearing node also carries plain fallback lines (engine re-rolls to a plain line
+# when a token can't resolve). Node-level `emote` is a random mood palette decoupled from the
+# picked line; per-line {line:, emote:} tags pin a line's emotion.
+#
+# Per-job signature overlays live under sibling keys TrainingBot_Warrior/_Mage/_Thief/_Bowman
+# (the §7 recipe). NOTE: the handler does not yet merge these by job suffix — they are authored
+# data-ready; wiring (look up TrainingBot_<job>.Signature alongside the base pool) is still TODO.
+
+TrainingBot:
+
+  GrindAmbient:
+    text:
+      - "好，再升几级我就下线"
+      - {line: "刷{MOB}真安逸", emote: 2}
+      - {line: "这些{MOB}就是不肯掉{DROP}，气死", emote: 5}
+      - "去倒杯水，怪物们等等我哈"
+      - {line: "刷了一整天{MOB}，闭上眼全都是它们", emote: 6}
+      - "快到饭点了，不过在那之前继续刷 ^^"
+      - {line: "今天{MAP}好安静，就我和怪", emote: 0}
+      - "说实话这样刷我都快睡着了"
+      - {line: "哦豁终于掉了{DROP}！谢谢运气 :)", emote: 2}
+      - "就再升一级……好吧也许两级"
+      - {line: "喜欢{MAP}的宁静", emote: 2}
+      - "背包又快满了，烦"
+      - {line: "来吧{MOB}，掉点好东西行不行", emote: 5}
+      - "外面在下雨，完美的刷级天气 ^^"
+      - {line: "要是爆出这{DROP}我就拿卷轴猛砸", emote: 3}
+      - "完了又忘记吃饭了 xD"
+      - {line: "{MOB}现在砍起来太轻松了，升级真爽", emote: 3}
+      - "呃，是喝药还是硬撑一波"
+      - "药快没了，得赶紧去趟自由市场"
+      - {line: "又一个{DROP}？今天第二个了，运气不错 ^^", emote: 2}
+      - "啊我爱死这个刷怪点了，从来没人来"
+      - {line: "不知道现在自由市场{DROP}能卖多少", emote: 0}
+      - "……等等，现在几点了"
+      - "打完这轮就休息，我保证"
+      - {line: "{MAP}的背景音乐听得我犯困", emote: 6}
+      - {line: "这些{MOB}互相抢刷怪点哈哈", emote: 6}
+      - "离转职不远了，不能停"
+      - "茶都凉了我还在刷"
+      - {line: "今天怪刷新好慢，{MOB}你人呢", emote: 6}
+      - "再刷五个就走"
+      - "哦豁闪亮的东西 xD"
+      - "zzz"
+      - "去吃个零食，马上回"
+      - "让我先快速清掉这波怪"
+      - "好好好，这次真是最后一只"
+      - {line: "今天的爆率跟我有仇", emote: 4}
+      - "这背景音乐再循环一次我就挂机了哈"
+      - {line: "耶终于出了个好东西", emote: 2}
+      - "呃……我出门锁门了没"
+      - "还有人在线吗，还是就我一个 ^^"
+      - {line: "别打我，我先来的", emote: 5}
+      - "软趴趴的小怪好打，喜欢"
+      - "蓝不够了，慢点啊小家伙"
+      - {line: "我一直跟自己说再刷一小时就下", emote: 6}
+      - "手机在震，不理它"
+      - "有点饿，但是练级在召唤我"
+      - {line: "最后一击没抢到，气死", emote: 4}
+      - "暖毯子加刷怪，完美的夜晚"
+      - "一眨眼又掉了一级，离谱"
+      - {line: "看着枫币慢慢堆起来嘿嘿", emote: 3}
+      - "这么晚没人在线，清净"
+      - "等攒够了钱就给我的装备上卷"
+      - "怪刚好在我头顶上复活哈哈完美"
+      - {line: "这地方是我的小秘密基地", emote: 3}
+      - "脑力：零"
+      - "哎哟我手腕哈哈"
+      - "休息一下……或者再刷五个"
+      - "不过这个感觉不太一样"
+      - "兄弟我彻底累瘫了"
+      - "今晚可能真的要熬到半夜了哈"
+      - "只有我的键盘和怪声在给我的生活配乐"
+      - "不过为什么刷怪这么治愈啊"
+      - {line: "{MOB}每两秒刷一只，完美", emote: 2}
+      - {line: "{MAP}过了半夜就变得好舒服", emote: 0}
+      - {line: "{DROP}能不能快点多", emote: 5}
+      - {line: "穿着连帽衫刷一整晚{MOB}，这才叫生活", emote: 2}
+      - {line: "那只{MOB}居然想抢我的怪哈哈", emote: 6}
+      - {line: "{MAP}现在让人感觉好安心", emote: 2}
+      - {line: "再出一批{DROP}我就睡觉，我发誓", emote: 4}
+      - {line: "状态来了的时候{MOB}简直像切菜", emote: 0}
+      - "这图里没东西碰得到我"
+      - {line: "一只{MOB}暴击了我差不多300血。三百。我需要坐下缓缓。", emote: 5}
+      - "好图。"
+      - {line: "{MOB}打起来也太轻松了吧太爽了", emote: 2}
+      - "唉，一样的怪一样的掉落一样的一切"
+      - {line: "{MAP}绝对是这个等级段最好的刷怪点", emote: 3}
+      - "不知道今晚结束前能升到多少级"
+      - {line: "杀{MOB}杀这么久，它们都该认识我了", emote: 3}
+      - {line: "我居然爆到了{DROP}，不敢相信", emote: 2}
+      - "随便吧。"
+      - {line: "这小时再不出{DROP}我就换图", emote: 5}
+      - "自动驾驶模式启动"
+      - {line: "开着窗刷{MOB}，今晚风真舒服", emote: 2}
+      - {line: "大家都看不上{MAP}，但这的经验其实离谱", emote: 3}
+      - "怪物源源不断，我也源源不断"
+      - "现在基本就卡在自动驾驶状态了"
+      - "每一轮都一样，说实话还挺治愈的"
+      - "深夜刷怪最清醒大脑了"
+      - "背包越来越乱，打完这波该整理了"
+      - "开始忘记村子长什么样了"
+      - "要么刷怪要么被怪刷，这就是格言"
+      - "好，第三杯咖啡，走起"
+      - {line: "等等，这轮我不是打过了吗", emote: 6}
+      - "感觉在这里待了一辈子，但我还挺喜欢的"
+      - "刷怪永不停歇，我也是"
+      - "枫币慢慢攒起来，就该这样"
+      - "没事干，不如升升级"
+      - "悄悄成为没人注意的最强玩家"
+      - "一眨眼又过了十分钟"
+      - {line: "行吧{MOB}，你现在掉个{DROP}我就当你最好的朋友", emote: 2}
+      - {line: "这么晚的{MAP}真的好宁静", emote: 0}
+      - {line: "这里的{MOB}根本停不下来，完美", emote: 0}
+      - {line: "还是没有{DROP}，随机数就是专门针对我", emote: 5}
+      - {line: "安静地刷{MOB}，只有背景音乐和我", emote: 0}
+      - {line: "{MAP}的稳定经验从不让人失望", emote: 3}
+      - {line: "这会儿{MOB}估计都摸清我的作息了", emote: 6}
+      - {line: "掉{DROP}了！好，这一个抵得上过去一小时", emote: 2}
+      - {line: "跟自己说清完这批{MOB}就下线，结果就到这地步了", emote: 7}
+      - {line: "这里{MOB}刷得特别稳定，我爱死了", emote: 2}
+      - {line: "每次我想离开{MAP}，它就掉个好怪", emote: 6}
+      - {line: "循环清{MOB}，闭着眼都能打", emote: 0}
+      - {line: "{DROP}今晚最好给我掉一个，不然我记仇", emote: 5}
+      - {line: "{MAP}已经是我的家了", emote: 2}
+      - {line: "状态好的时候{MOB}跟黄油一样好切", emote: 3}
+      - "一个人刷怪有时候就是有种特别的感觉"
+      - {line: "闭着眼都能刷{MOB}了", emote: 0}
+      - "进入状态之后时间都混在一起了"
+      - {line: "{MAP}已经变成我人格的一部分了哈", emote: 2}
+      - "脑子空空，只有氛围和怪"
+      - {line: "这些{MOB}比我自己还懂我的节奏", emote: 3}
+      - "这时候我的手速已经快过我的脑子了"
+      - {line: "{DROP}爆率今天一整天都在眷顾我", emote: 2}
+      - "自动驾驶模式，但很有产出"
+      - {line: "{MOB}的刷新计时声在我耳中就是音乐", emote: 2}
+      - "这一整场只有刷怪和氛围"
+      - {line: "今晚要是梦见{MOB}我一点都不惊讶", emote: 6}
+      - "说实话闭着眼都能打"
+      - {line: "{MAP}的背景音乐已经成我现实里的手机铃声了", emote: 0}
+      - "沉浸在刷怪里就是我的自然状态"
+      - {line: "{MOB}和我对抗全世界", emote: 0}
+      - "心流状态是真的存在，而且我正在里面"
+      - {line: "每个{DROP}都像一场小小的胜利", emote: 2}
+      - "刷怪看来就是我的爱语"
+      - {line: "这些{MOB}虽然好预测但让人安心", emote: 2}
+      - "我坐的地方快要坐出永久凹痕了"
+      - {line: "这个时间点的{MAP}氛围无敌", emote: 0}
+      - "手指不用想就知道该按什么"
+      - {line: "{MOB}像钟表一样准时倒下，真解压", emote: 3}
+      - "和平与怪物，这就是生活"
+      - {line: "{DROP}在我发呆的时候掉了出来，笑了", emote: 2}
+      - "完全专注，完美"
+      - {line: "说实话我可以永远待在{MAP}", emote: 2}
+      - "刷怪每次都能戳中我的爽点"
+      - {line: "{MOB}的刷新节奏现在就像个朋友了", emote: 6}
+    emote:
+      - 0
+      - 6
+      - 2
+    wait: 1
+
+  GrindStart:
+    text:
+      - "好嘞，{MOB}时间到，冲级走起"
+      - {line: "好{MAP}我来了，开刷", emote: 2}
+      - "回归刷怪日常 ^^"
+      - {line: "今天在{MAP}升级，位置舒服", emote: 2}
+      - {line: "好，刷一会儿{MOB}", emote: 0}
+      - {line: "有点困，但练级在召唤我", emote: 4}
+      - {line: "又是{MAP}哈哈，我的第二个家", emote: 2}
+      - "好，再升一级就下线，我保证"
+      - {line: "冲冲冲，{MOB}根本没戏", emote: 3}
+      - {line: "药买好了，飞镖带上了，开刷", emote: 2}
+      - "去蹲一会儿{MOB}，马上回来"
+      - {line: "嗯，就在这悠闲地刷一会儿", emote: 0}
+      - {line: "{MAP}好安静，刷怪绝佳", emote: 2}
+      - "好，专注点，{MOB}可不会自杀"
+      - {line: "这场练级我很兴奋，冲 ^^", emote: 2}
+      - {line: "谢了这位置，开刷{MOB}", emote: 2}
+      - "就刷几轮{MOB}然后去吃饭哈"
+      - {line: "说真的喜欢在{MAP}刷怪", emote: 2}
+      - {line: "好，我醒了，{MOB}来跳舞吧", emote: 0}
+      - "回归，老图老{MOB} ^^"
+      - "开干"
+      - {line: "啊，想念这图了", emote: 2}
+      - "好好，热身完毕，走起"
+      - {line: "哈欠……再过5分钟我就认真打", emote: 4}
+      - "刷怪，甜蜜的家"
+      - {line: "药囤满了，开吃", emote: 3}
+      - "好，这次绝对不分心"
+      - {line: "大家早上好，打卡上班哈", emote: 2}
+      - "第一波，走着"
+      - {line: "等这一天等了一整天了，终于来蹲了", emote: 2}
+      - {line: "图有点冷清，不过我无所谓", emote: 0}
+      - {line: "深呼吸，向着下次转职冲", emote: 0}
+      - "让这些怪后悔自己刷出来"
+      - {line: "刷怪时间到冲冲冲 ^^", emote: 2}
+      - "又来了"
+      - {line: "好{MAP}……今天别让我失望啊", emote: 0}
+      - {line: "和{MOB}的第二回合，放马过来", emote: 3}
+      - "老位置老刷法"
+      - {line: "{MOB}这次最好掉点好东西，不然我要生气了", emote: 5}
+      - {line: "又是{MAP}而且我超兴奋", emote: 2}
+      - "嗯，开干"
+      - {line: "在{MAP}安顿下来，零食都备好了", emote: 2}
+      - "刷怪就是多点几下鼠标的冥想哈哈"
+      - {line: "行吧{MOB}，你今天要倒霉了", emote: 3}
+      - "真希望这次比上次顺利"
+      - {line: "开始{MOB}刷怪之旅，求掉落 ^^", emote: 2}
+      - "看看药耗完之前我能升到哪"
+      - "好，走起，这次真的不分心，我说真的"
+      - "药备齐，卷轴就位，开刷"
+      - "上线就是为了刷怪，今天不闲聊"
+      - {line: "这场会顺利的，我有预感", emote: 2}
+      - "好，趁我还有干劲赶紧搞起来"
+      - "手指热身中哈"
+      - "游戏时间，其他人先等着"
+      - "好，再来一场，看看到底能升到哪"
+      - {line: "好{MOB}，看看咱俩谁先累", emote: 3}
+      - {line: "又回{MAP}了，不然我还能在哪哈", emote: 2}
+      - {line: "冲进{MOB}堆里，毫不犹豫", emote: 3}
+      - {line: "这个时间{MAP}很安静，刷怪绝佳天气", emote: 2}
+      - {line: "让{MOB}不开心的时候到了", emote: 3}
+      - {line: "在{MAP}找到个干净位置，蹲到药喝完为止", emote: 2}
+      - {line: "好{MOB}……我警告你，我要这个经验", emote: 0}
+      - {line: "在{MAP}的新一场，看看今天会有什么 ^^", emote: 2}
+      - "准备开刷，头脑清醒，药满满"
+      - {line: "回来刷{MOB}了，掉点好货吧", emote: 0}
+      - "精力满满，经验在召唤，冲"
+      - {line: "好{MAP}，我回来准备好", emote: 2}
+      - {line: "{MOB}们小心点，我今天很专注", emote: 3}
+      - "开局强势，这把要狠狠升级"
+      - {line: "让{MOB}后悔一切的时刻到了", emote: 3}
+      - "心态全新，黄金刷怪时段在前"
+      - {line: "{MAP}在召唤我，我这就到 ^^", emote: 2}
+      - "准备好统治这场练级了"
+      - {line: "刷{MOB}升级，走起", emote: 2}
+      - "火力全开，专注就绪，冲经验"
+      - {line: "好{MOB}，刷怪正式开始", emote: 0}
+    emote:
+      - 0
+      - 2
+    wait: 1
+
+  LevelUp:
+    text:
+      - {line: "{LEVEL}级了冲冲冲", emote: 2}
+      - "叮！终于升级了"
+      - {line: "{LEVEL}级，自己夸自己一句，不赖", emote: 3}
+      - {line: "哦耶到{LEVEL}级了 ^^", emote: 2}
+      - {line: "升级啦 \\o/", emote: 2}
+      - {line: "好，{LEVEL}级了，再升一级就睡觉", emote: 2}
+      - {line: "那些刷怪总算没白费哈", emote: 2}
+      - {line: "{LEVEL}级宝贝", emote: 2}
+      - {line: "呼终于升级了，卡了好久", emote: 2}
+      - {line: "白送的能力点，冲冲冲", emote: 2}
+      - {line: "{LEVEL}级，说了我能追上的 xD", emote: 3}
+      - {line: "这级升得真爽", emote: 2}
+      - {line: "又一个 ^^", emote: 2}
+      - {line: "{LEVEL}级了，离转职不远了嘿嘿", emote: 2}
+      - {line: "顺滑，这次连死都没死", emote: 3}
+      - {line: "叮叮，加点时间到", emote: 2}
+      - {line: "已经{LEVEL}级了？都没注意哈", emote: 3}
+      - {line: "这场刷怪有点小骄傲", emote: 2}
+      - {line: "{LEVEL}级了，继续冲 \\o/", emote: 2}
+      - {line: "轻松升级，说了我能行", emote: 3}
+      - "叮！"
+      - "冲冲冲 \\o/"
+      - "终于"
+      - {line: "又拿下一次 ^^", emote: 2}
+      - "哦豁新等级到账"
+      - {line: "就知道我可以", emote: 3}
+      - "立马变强了嘿嘿"
+      - {line: "这些能力点得好好安排哈", emote: 2}
+      - "喔 \\o/"
+      - "这级升得带劲，刷了好久"
+      - {line: "耶耶，稳稳往上爬 ^^", emote: 2}
+      - {line: "这级升得毫不费力", emote: 3}
+      - {line: "{LEVEL}级？！不是吧冲冲冲冲", emote: 2}
+      - "嗯。又升一级。还行。"
+      - {line: "{LEVEL}级，显然的，还能有别的结果吗", emote: 3}
+      - {line: "不敢相信我真的到{LEVEL}级了，我在发抖", emote: 2}
+      - "叮。不错。"
+      - {line: "{LEVEL}级，每一点经验都是我熬出来的", emote: 2}
+      - "喔升级了，又到了做以后会后悔的加点决定的时候了"
+      - {line: "{LEVEL}级！打赌没人比我这级刷得更拼", emote: 3}
+      - {line: "叮叮叮{LEVEL}级宝贝", emote: 2}
+      - "终于。"
+      - {line: "{LEVEL}级……这级花了老久，但值了", emote: 2}
+      - "新等级新的我哈"
+      - {line: "凌晨3点独自升到{LEVEL}级，还挺有诗意的", emote: 0}
+      - "说实话没想到今天能升，但成了"
+      - {line: "{LEVEL}级了，经验条又清零了", emote: 7}
+      - "半睡半醒升的级哈"
+      - {line: "好，现在我能下线了。大概。", emote: 3}
+      - "太好了，终于"
+      - {line: "看到经验条满了那一瞬间太开心了", emote: 2}
+      - "每只怪都值了"
+      - "好，这感觉真不错，不骗你"
+      - "这就对了，就是这个味"
+      - "新等级新的我（还是那个刷法）"
+      - {line: "{LEVEL}级！！那些刷怪总算没白刷", emote: 2}
+      - {line: "{LEVEL}级，离转职又近一步", emote: 2}
+      - {line: "叮！{LEVEL}级了还在刷怪，这就是人生", emote: 2}
+      - {line: "行行行{LEVEL}级，小意思，完全在计划之中", emote: 3}
+      - {line: "{LEVEL}。记下了。继续。", emote: 0}
+      - {line: "哦{LEVEL}级？还以为我落后更多呢，不错", emote: 6}
+      - {line: "{LEVEL}级了，刷怪进程照常归零", emote: 7}
+      - {line: "升到{LEVEL}级这感觉太爽了", emote: 2}
+      - {line: "{LEVEL}级！！这级升得顺滑", emote: 2}
+      - {line: "{LEVEL}级宝贝，又记上一笔", emote: 3}
+      - {line: "叮叮{LEVEL}级，干净利落", emote: 2}
+      - {line: "{LEVEL}级，我这升级速度飞起来了", emote: 2}
+      - {line: "{LEVEL}级达成，感觉真好", emote: 3}
+      - {line: "又升一级，{LEVEL}级让我变得更强", emote: 2}
+      - {line: "{LEVEL}级了，状态在线", emote: 2}
+      - {line: "这次到{LEVEL}级还挺快", emote: 3}
+      - {line: "现在{LEVEL}级，感觉浑身是劲", emote: 2}
+      - {line: "叮！{LEVEL}级达成", emote: 2}
+      - {line: "离转职更近了，今天到{LEVEL}级", emote: 3}
+    emote:
+      - 2
+      - 3
+    wait: 1
+
+  Damage:
+    text:
+      - {line: "哎哟，这{MOB}打得真疼", emote: 5}
+      - {line: "差点没盯着血条", emote: 7}
+      - "我的药呢哈哈"
+      - {line: "疼疼疼{MOB}求你了", emote: 5}
+      - {line: "这{MOB}一直打我，烦", emote: 5}
+      - {line: "好疼 T_T", emote: 4}
+      - {line: "哎呀没注意到撞上那只{MOB}了", emote: 7}
+      - "哎哟我的血"
+      - {line: "好家伙没礼貌啊{MOB}", emote: 5}
+      - {line: "哎又摔了哈", emote: 7}
+      - {line: "那{MOB}从哪冒出来的", emote: 6}
+      - {line: "哎哟我可怜的小血条", emote: 4}
+      - {line: "别打我了{MOB}，我在刷怪呢", emote: 5}
+      - {line: "得，看来药又得多买点", emote: 6}
+      - {line: "哎哟摔得好疼 T_T", emote: 4}
+      - {line: "没看到那只{MOB}，失误失误", emote: 7}
+      - "疼疼让我缓缓"
+      - {line: "{MOB}真的打到我了，太丢人了哈", emote: 7}
+      - {line: "一只{MOB}把我打到半血，服了", emote: 5}
+      - "哦豁"
+      - "哎哟刺痛"
+      - {line: "被顶下悬崖了，好好好", emote: 5}
+      - {line: "血掉得比我喝药还快哈", emote: 6}
+      - "妈呀"
+      - {line: "行吧，这下是我活该", emote: 7}
+      - {line: "我一走神它就打我，服了", emote: 5}
+      - "疼疼"
+      - {line: "又没落稳，哎", emote: 7}
+      - {line: "先坐下喝口药，不然要倒了", emote: 0}
+      - "疼，不"
+      - "{MOB}好疼"
+      - "去喝口药，马上回"
+      - "过分了啊"
+      - "比预想的疼多了"
+      - "这得喝掉多少药啊"
+      - "要不还是去简单点的地方刷吧"
+      - "那{MOB}比我想的强"
+      - "得少挨点打才行"
+      - "挨了一下，正在回血"
+      - "摔倒了，得小心点"
+      - {line: "那只{MOB}刚才打了我多少？？你说什么？？", emote: 5}
+      - "区区擦伤"
+      - "疼。"
+      - {line: "{MOB}就这么径直走过来打我。行吧。", emote: 5}
+      - {line: "哈哈这{MOB}以为能伤到我，真可爱", emote: 3}
+      - "哎哟，这下真有感觉了"
+      - {line: "我这辈子再也不靠近那{MOB}了。永远不。", emote: 5}
+      - "切，没啥感觉"
+      - {line: "{MOB}运气好打中一下，不会有下次", emote: 3}
+      - "疼，行吧我喝药"
+      - {line: "那{MOB}绝对是专门针对我，我发誓", emote: 5}
+      - "喝药扛过去了，没压力"
+      - "我的血条现在就是个建议"
+      - {line: "像个天才一样直接撞进{MOB}怀里", emote: 7}
+      - {line: "刚被{MOB}教育了，我决定假装无事发生", emote: 7}
+      - "哎哟哈，我刚真蠢"
+      - {line: "好疼，没想到会这样", emote: 7}
+      - "完全没感觉，没事，我很好"
+      - {line: "好了现在我得喝药了，多谢啊", emote: 5}
+      - "一个失误半管血没了，绝了"
+      - "这教训我以后不敢走神了"
+      - "疼。没礼貌。"
+      - "等我缓缓我的血条"
+      - {line: "我发呆的时候被{MOB}打了，服", emote: 7}
+      - {line: "好{MOB}，这可不兴打啊", emote: 5}
+      - {line: "那{MOB}绝对在专门盯着我打，我确信", emote: 5}
+      - {line: "{MOB}暴击我的时候我真的痛出声了哈", emote: 7}
+      - {line: "打得不错{MOB}，但不会有下次了", emote: 3}
+      - {line: "{MOB}刚刚是把我一整包药都耗光了吗，服", emote: 5}
+      - {line: "直接掉进{MOB}的地盘了，说实话怪我", emote: 7}
+      - {line: "那{MOB}确实打了我个措手不及", emote: 6}
+      - {line: "那群{MOB}把我打惨了", emote: 5}
+      - {line: "哎呀走进{MOB}的攻击范围了", emote: 7}
+      - "得好好盯着血条"
+      - {line: "{MOB}比我以为的快多了", emote: 5}
+      - {line: "是啊那{MOB}抓到我走神了哈", emote: 6}
+      - "提醒自己别贪刀"
+      - {line: "行吧{MOB}，我懂你，我先喝口药", emote: 0}
+      - {line: "伤害已承受，继续前进", emote: 0}
+      - {line: "{MOB}打了我，但我会讨回来的", emote: 3}
+      - "先缓一缓，稳着点"
+      - {line: "{MOB}打得比预想疼", emote: 6}
+      - {line: "好吧这波是我的锅，{MOB}都没怎么打", emote: 7}
+      - {line: "喝药中，{MOB}偷袭", emote: 0}
+    emote:
+      - 5
+      - 7
+      - 0
+    wait: 1
+
+  NearDeath:
+    text:
+      - {line: "天哪差点死了哈", emote: 6}
+      - "好好好，先撤一下"
+      - {line: "呼好险，药也没了", emote: 7}
+      - {line: "啊啊我的血 T_T", emote: 6}
+      - {line: "不行不行不行，撤退撤退", emote: 6}
+      - {line: "喝药喝药快点快点", emote: 6}
+      - {line: "吓死我了", emote: 7}
+      - {line: "红血红血红血天哪", emote: 6}
+      - "让我缓口气回回血"
+      - {line: "差点就掉经验了，真险", emote: 7}
+      - {line: "谢谢药谢谢药 T_T", emote: 7}
+      - {line: "哎哟怪一下子来太多了", emote: 6}
+      - "退到角落里休息一下"
+      - {line: "心跳真的漏了一拍哈", emote: 7}
+      - {line: "好，教训了，别一次拉太多怪", emote: 7}
+      - "先在这坐一会儿缓缓"
+      - {line: "呼，得赶紧去补货了", emote: 0}
+      - {line: "那怪打得比我想的疼多了", emote: 6}
+      - {line: "刚才有点慌，抱歉", emote: 7}
+      - {line: "捡回一条命，勉强算", emote: 0}
+      - "呼"
+      - "疼疼疼好好好"
+      - {line: "就剩一丝血了天哪", emote: 6}
+      - "不……我的经验条 T_T"
+      - {line: "回城卷回城，马上回", emote: 0}
+      - "好，深呼吸，深呼吸"
+      - {line: "再挨一下我就交代了哈", emote: 7}
+      - {line: "我手有点抖", emote: 6}
+      - {line: "刚才真以为自己没了", emote: 4}
+      - {line: "太险了，得放慢节奏", emote: 0}
+      - {line: "我人生走马灯都放了一遍哈", emote: 7}
+      - {line: "那些怪突然冒出来，差点掉一整条经验 T_T", emote: 4}
+      - {line: "我差点死了。差。点。死。了。我要去走走。", emote: 6}
+      - "没事，还好"
+      - {line: "切，计划之内，一直稳得很", emote: 3}
+      - {line: "我的血条真的就剩一条线了天哪", emote: 6}
+      - "……"
+      - "刚才真的太险了"
+      - {line: "今天第二次了。第。二。次。", emote: 5}
+      - {line: "差点掉经验，我真会哭出来的", emote: 7}
+      - "喝药喝药喝药"
+      - {line: "好，这回合{MOB}赢了，下次再说", emote: 5}
+      - "去跟朋友讲讲这次死里逃生"
+      - "我心脏跳好快天哪"
+      - {line: "不知道怎么活下来的，别问", emote: 7}
+      - "我真的在椅子前发抖哈"
+      - {line: "提醒自己：下次别拉全图的怪", emote: 7}
+      - {line: "我得小心点，刚才太险了", emote: 6}
+      - "勉强活着，所以我从不一次拉太多"
+      - "把身上所有药全灌下去，稍等"
+      - {line: "真的不能再这样了 T_T", emote: 7}
+      - "我需要缓一缓，可能还得来点吃的"
+      - {line: "我手心都出汗了哈，就差那么一点", emote: 6}
+      - "刚才药要是没了，经验可就真没了，可怕"
+      - "好，深呼吸。我没事。我们没事。"
+      - {line: "提醒自己：一次只拉一波", emote: 7}
+      - "刚才太不对劲了，重新开始"
+      - "差点用'硬'的方式回城了"
+      - "血两秒内从满到空，吓人"
+      - {line: "那{MOB}刚才真把我吓到了", emote: 6}
+      - "上线是来刷怪的，差点永久下线"
+      - {line: "{MOB}差点把我送走。太丢人了。", emote: 7}
+      - "等等等等，我真的要死了"
+      - {line: "刚才太悬了", emote: 7}
+      - "不行，立刻后撤"
+      - {line: "血量要暴跌了", emote: 6}
+      - {line: "现在疯狂喝药", emote: 6}
+      - {line: "刚才真的被吓到了哈", emote: 7}
+      - {line: "好，再也不这么干了", emote: 6}
+      - "瞬间清醒了"
+      - {line: "差点掉一整级经验天哪", emote: 6}
+      - "暂停一下，我先回满血"
+      - {line: "天哪吓死了", emote: 6}
+      - {{line: "喝药喝药喝药！！", emote: 6}}
+      - {{line: "好，我先撤到安全地带", emote: 0}}
+      - {{line: "这次真的太太太悬了", emote: 7}}
+    emote:
+      - 6
+      - 7
+      - 0
+    wait: 1
+
+  MapShare:
+    text:
+      - {line: "这张图有人了吗{PLAYER_NAME}？", emote: 0}
+      - "一起用？怪够多的"
+      - {line: "哦是{PLAYER_JOB}啊，行，我打左边", emote: 2}
+      - "这图有人吗？想分着打的话说一声"
+      - {line: "嘿{PLAYER_NAME} :) 要右边那半吗？", emote: 2}
+      - "没事，这图装得下两个人"
+      - "你也在刷怪？可以一起 ^^"
+      - {line: "哦嗨{PLAYER_NAME}，我换下个线去", emote: 0}
+      - "我打上面平台你打下面，没问题"
+      - {line: "算是我蹲的位哈，不过可以一起用", emote: 5}
+      - "这图挺空的，够咱俩刷"
+      - {line: "欢迎 :) 想打的话左边有怪", emote: 2}
+      - {line: "哦是{PLAYER_JOB}，要分图吗？", emote: 0}
+      - "你要刷的话我可以换线，没事"
+      - "要组队刷还是自己单开一线？"
+      - {line: "在这蹲一会儿了，不过不介意一起", emote: 0}
+      - {line: "保证不抢怪，想打哪边说一声就行", emote: 2}
+      - "有位置，但别抢我怪哈"
+      - {line: "嘿{PLAYER_NAME}，这图给你？我可以走", emote: 0}
+      - "怪让给你了，反正我也快刷完了"
+      - {line: "哦嗨！怪多着呢，打吧{PLAYER_NAME}", emote: 2}
+      - {line: "这算我的刷怪点，不过你可以留下 :)", emote: 5}
+      - "要不轮流打这波怪？"
+      - "你也想在这刷？可以一起，没事"
+      - {line: "我挪一挪，全归你{PLAYER_NAME}", emote: 0}
+      - {line: "哦是{PLAYER_JOB}！你加buff我刷怪？哈开玩笑的", emote: 2}
+      - "图够大，随便挑一边"
+      - {line: "算我先来的，但分你一半", emote: 5}
+      - "没事，我换个线就好 ^^"
+      - {line: "欢迎来到{MAP} :) 想留就留，有位置", emote: 2}
+      - "换线吗？我真不介意"
+      - "都给你，我本来就准备走了"
+      - {line: "打吧，反正我马上要去买药", emote: 0}
+      - "这个台子你要的话给你"
+      - {line: "哦嘿，没想到还有人来这图哈", emote: 6}
+      - {line: "你也冲这波怪？可以轮流 ^^", emote: 2}
+      - "我一般蹲这，但下面的怪你随意"
+      - {line: "你要留下的话，让我留这个角落刷就行谢了", emote: 0}
+      - {line: "说实话有人一起刷怪更开心，待着吧 :)", emote: 2}
+      - "在为下一级刷怪，不过怪比我自己一个人清得快多了"
+      - {line: "怪刷新速度够咱俩分的，放心", emote: 0}
+      - {line: "高台给你，我在下面守着我的药挺舒服哈", emote: 2}
+      - "打吧，我反正在换线"
+      - "好好好，没事"
+      - "怪全归你"
+      - "哟{PLAYER_NAME}，位置管够"
+      - "我要是抢到你的怪了跟我说"
+      - "两个人一起刷怪爽多了"
+      - "天哪嗨！我一直在这，别管我"
+      - "上面给你，我反正打下面"
+      - "没事没事，就想赶在饭前多刷几只哈哈"
+      - "这的怪够五个人打哈哈"
+      - "说实话再刷几只就走，然后全归你{PLAYER_NAME}"
+      - "完全不介意有人陪，想留就留 :)"
+      - "挂机前随便刷刷，你可以待着"
+      - "这是我的图。我。的。图。……行吧你留下也行"
+      - {line: "哦太好了，来人了。真棒。", emote: 5}
+      - {line: "嗨你好嗨新朋友？？^^", emote: 2}
+      - {line: "你要是抢我怪，我就发条措辞严厉的喇叭", emote: 5}
+      - "嘿。"
+      - {line: "{PLAYER_NAME}，这图是咱这等级刷怪最快的", emote: 0}
+      - "哦来人了，不错"
+      - {line: "哟{PLAYER_NAME}，别碰左边那波怪就没事", emote: 0}
+      - {line: "{PLAYER_JOB}啊，行，人多热闹 ^^", emote: 2}
+      - {line: "刚才挺享受清静的，不过{PLAYER_NAME}你留下也行", emote: 0}
+      - "一个人刷这图刷了老久了，欢迎加入"
+      - {line: "哦{PLAYER_NAME}！要上面平台吗？", emote: 2}
+      - {line: "{PLAYER_JOB}是绝佳刷怪搭档，一起吧", emote: 2}
+      - "别抢怪就行，我就这一个要求"
+      - {line: "算你运气好，我刚补完药心情好哈", emote: 3}
+      - "随便挑哪边，我无所谓"
+      - "说实话还挺希望来人的，一个人太孤独"
+      - "整张图都给你，我马上挂机"
+      - "分享是美德嘛哈"
+      - "反正我也快走了，来得正好"
+      - {line: "别打乱我的刷怪路线就没事", emote: 0}
+      - "两个人刷真的更快，信我"
+      - "好好好，留下吧"
+      - {line: "嘿{PLAYER_NAME}，我右边你左边？", emote: 2}
+      - {line: "{PLAYER_JOB}？不错，你清怪估计比我还快", emote: 2}
+      - {line: "欢迎来到{MAP}，这等级段的秘密宝地", emote: 2}
+      - {line: "嘿{PLAYER_NAME}，你要留下的话别抢上面那波怪", emote: 0}
+      - {line: "{PLAYER_JOB}啊，你在队里肯定很强哈，要一起吗？", emote: 2}
+      - {line: "{PLAYER_NAME}，{MAP}你要上面还是下面？自己挑", emote: 0}
+      - {line: "行啊{PLAYER_NAME}，{MAP}的怪够咱俩分的", emote: 2}
+      - "位置管够，别担心"
+      - {line: "哟{PLAYER_NAME}欢迎，想待多久待多久", emote: 2}
+      - "这图够几个人一起刷"
+      - {line: "嘿{PLAYER_NAME}，直接开打吧，我没意见", emote: 0}
+      - "我就待一会儿，主刷点都给你"
+      - {line: "我这没冲突{PLAYER_NAME}，纯刷怪", emote: 0}
+      - "随便在哪安营扎寨都行"
+      - {{line: "{PLAYER_JOB}跟我分这图轻轻松松", emote: 2}}
+      - "说实话比起单刷我更喜欢有人陪"
+      - {{line: "介意一起刷怪吗{PLAYER_NAME}？", emote: 0}}
+      - "这没有抢怪，就两个刷怪人各干各的"
+      - {{line: "{PLAYER_NAME}，你先来的话这图归你", emote: 0}}
+      - "分着打更新鲜，我乐意"
+      - {{line: "嘿{PLAYER_NAME}，咱把图公平分一下", emote: 2}}
+      - "一起刷总比互相抢好"
+      - {{line: "没事{PLAYER_NAME}，够咱俩分的", emote: 2}}
+      - "不跟人抢怪，怪够多"
+      - {{line: "{PLAYER_NAME}，你要这位置我让出来", emote: 0}}
+      - "说真的有人在外面陪着挺好的"
+      - {{line: "{PLAYER_JOB}？不错，咱俩有默契", emote: 2}}
+      - "轻松刷怪，没有火药味"
+      - {{line: "嘿{PLAYER_NAME}，想独占这图的话全给你", emote: 0}}
+      - "刷怪氛围两个人总比一个人好"
+      - {{line: "{PLAYER_NAME}想要什么拿什么，我够了", emote: 2}}
+      - "这图我又不搞领地意识哈"
+      - {{line: "嘿{PLAYER_JOB}！让咱俩都玩得开心点", emote: 2}}
+      - "这边和平共处 ^^"
+      - {{line: "行吧{PLAYER_NAME}，没事吧？刷怪搭子？", emote: 2}}
+    emote:
+      - 0
+      - 2
+      - 5
+    wait: 1
+
+  PlayerCompliment:
+    text:
+      - {line: "哟，{PLAYER_WEAPON}不错啊", emote: 2}
+      - {line: "哇{PLAYER_PET}好可爱", emote: 2}
+      - {line: "那件{PLAYER_GEAR}有点羡慕了", emote: 4}
+      - {line: "天哪你这{PLAYER_WEAPON}哪来的 o_o", emote: 2}
+      - {line: "爱了这{PLAYER_GEAR}，太干净了 ^^", emote: 2}
+      - {line: "真希望我也有那样的{PLAYER_GEAR} :(", emote: 4}
+      - {line: "{PLAYER_PET}跟在你后面太可爱了 <3", emote: 2}
+      - {line: "{PLAYER_GUILD}是什么公会？？想加入一个", emote: 0}
+      - {line: "哦哦{PLAYER_GUILD}的人装备总是最靓的", emote: 2}
+      - {line: "你这{PLAYER_WEAPON}肯定砸了不少卷吧", emote: 0}
+      - {line: "你这身搭配真讲究", emote: 2}
+      - {line: "谢了没抢我怪，你人真好 ^^", emote: 2}
+      - "那件披风好可爱，哪里买的"
+      - {line: "你人气值肯定爆表吧", emote: 0}
+      - {line: "天哪我能摸摸{PLAYER_PET}吗", emote: 2}
+      - "有一天也要攒钱弄你这样的装备 :)"
+      - "你看起来玩了很久了，羡慕"
+      - {line: "{PLAYER_NAME}你这身也太壕了", emote: 2}
+      - "这是点装吗？穿你身上真好看"
+      - "哈哈这身不错，品味在线"
+      - {line: "你的{PLAYER_GEAR}配得严丝合缝，嫉妒了", emote: 4}
+      - "想要那把武器想了好久"
+      - {line: "{PLAYER_PET}就那么悠哉悠哉的，爱了 ^^", emote: 2}
+      - "长你这样身上得多少枫币哈"
+      - "说实话你装备就是我的目标"
+      - "哦嘿不错 ^^"
+      - "你看着好强"
+      - "穿搭不错 :)"
+      - {line: "哇哦嗨 o_o", emote: 2}
+      - "今天状态不错嘛"
+      - {line: "你看起来很懂这游戏哈", emote: 2}
+      - "在外面碰到厉害的人总是很开心"
+      - {line: "你让我想更努力练级了哈", emote: 2}
+      - "希望我哪天也能像你这么帅哈"
+      - {line: "有你们这些人在，这图有意思多了 ^^", emote: 2}
+      - "你这身行头绝了"
+      - "你有一股老玩家气质"
+      - {line: "你的{PLAYER_WEAPON}就是我的目标", emote: 3}
+      - "这身穿搭有点炸"
+      - "刷太久了头都晕了"
+      - "你就是酷"
+      - "说实话这氛围现在好多了"
+      - {line: "那{PLAYER_WEAPON}值得那么肝吗", emote: 2}
+      - {line: "那件{PLAYER_GEAR}肯定肝了超久吧", emote: 4}
+      - {line: "那{PLAYER_GEAR}你刷了多久才出的", emote: 2}
+      - {line: "{PLAYER_GUILD}的氛围绝了", emote: 2}
+      - {line: "{PLAYER_PET}知道你才是正主", emote: 2}
+      - "有你在这刷怪没那么孤单了，谢谢"
+      - "你在这悠哉的样子让我心情好多了"
+      - {line: "你这{PLAYER_WEAPON}太干净了，搞得我想快点升级", emote: 3}
+      - {line: "行吧{PLAYER_NAME}，你那身装备显得我们好寒酸", emote: 3}
+      - {line: "哇{PLAYER_WEAPON}，那……真挺厉害的", emote: 2}
+      - "不错。"
+      - {line: "{PLAYER_GEAR}太顶了天哪", emote: 2}
+      - {line: "真希望我的装备有你一半好看", emote: 4}
+      - {line: "那{PLAYER_WEAPON}砸卷肯定砸了老久", emote: 0}
+      - {line: "{PLAYER_PET}和{PLAYER_NAME}是这最萌的组合 ^^", emote: 2}
+      - {line: "你这{PLAYER_GEAR}让我开始反思我的加点了", emote: 6}
+      - "你看起来就是很会玩的样子"
+      - {line: "说真的{PLAYER_GUILD}的人装备永远最干净", emote: 2}
+      - "认真的，这些你是怎么买得起的"
+      - {line: "那{PLAYER_NX}穿你身上真好看 ^^", emote: 2}
+      - {line: "哦{PLAYER_LEVEL}级的{PLAYER_JOB}，佩服", emote: 2}
+      - "我要加倍努力刷怪追上你哈"
+      - {line: "{PLAYER_NAME}这一身Boss气质", emote: 2}
+      - "你就是异于常人，真的"
+      - "佩服你的坚持，太帅了"
+      - "希望有天我也能那么帅，目标"
+      - "你刷得很猛啊，看得出来"
+      - "你这气质无可挑剔"
+      - "老玩家气质，我感受到了"
+      - "你在这，这图都变帅了"
+      - {line: "行吧你肯定哪里做对了哈", emote: 2}
+      - {line: "那{PLAYER_GEAR}那么难出，你刷了多久", emote: 2}
+      - {line: "不怕尴尬地说，你这{PLAYER_WEAPON}简直是完美", emote: 2}
+      - {line: "{PLAYER_PET}这样到处跟着你太萌了哈", emote: 2}
+      - {line: "{PLAYER_NAME}穿着那{PLAYER_GEAR}在炫耀全场", emote: 3}
+      - {line: "每次看到{PLAYER_GUILD}的人都装备豪华得不行", emote: 2}
+      - {line: "{PLAYER_NX}很难弄吗？太好看了", emote: 0}
+      - {line: "要我有{PLAYER_WEAPON}我能刷到天荒地老哈", emote: 2}
+      - "你这整个人的气质无可挑剔"
+      - {line: "{PLAYER_NAME}你看起来就很懂这游戏", emote: 2}
+      - "你走位的样子一看就练过"
+      - {{line: "你这套{PLAYER_GEAR}搭配完美", emote: 2}}
+      - "你明显很会玩"
+      - {{line: "{PLAYER_PET}看起来配置很专业", emote: 2}}
+      - "你的操作明显很熟练"
+      - {{line: "{PLAYER_JOB}玩家总是氛围最好", emote: 2}}
+      - "你看起来是真心喜欢这游戏的人"
+      - {{line: "{PLAYER_NAME}你打得行云流水", emote: 2}}
+      - "你这套加点明显用了心"
+      - {{line: "佩服你有那样的{PLAYER_GEAR}", emote: 0}}
+      - "你有一股老玩家范儿"
+      - {{line: "你有{PLAYER_WEAPON}说明你肯下功夫", emote: 2}}
+      - "你的刷怪风格真的励志"
+      - {{line: "{PLAYER_NAME}你打得也太轻松了", emote: 2}}
+      - "你身上有股范儿"
+      - {{line: "{PLAYER_GEAR}的选择很有品味", emote: 0}}
+      - "你看起来是值得组队的人"
+      - {{line: "这{PLAYER_WEAPON}的选品简直绝了", emote: 3}}
+      - "你把刷怪玩成了科学"
+      - {line: "{PLAYER_NAME}你让我有点小压力哈", emote: 2}
+      - "你就是和一般人不一样"
+      - {{line: "你们这些{PLAYER_JOB}让我想快点升级", emote: 2}}
+      - "你是真心热爱这游戏"
+      - {{line: "哇{PLAYER_GEAR}，说实话就是我的目标", emote: 4}}
+      - "你把刷怪玩成了艺术"
+    emote:
+      - 2
+      - 0
+    wait: 1
+
+# __CONTINUE__

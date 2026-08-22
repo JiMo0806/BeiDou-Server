@@ -67,6 +67,7 @@ import org.gms.server.maps.Summon;
 import org.gms.server.partyquest.Pyramid;
 import org.gms.server.quest.medal.SpecialChallengeMedal;
 import org.gms.server.quest.medal.VeteranHunterMedal;
+import soloMapling.ArtificialPlayer.BotHelpers;
 
 import java.awt.*;
 import java.lang.ref.WeakReference;
@@ -764,8 +765,13 @@ public class Monster extends AbstractLoadedLife {
 
             int _partyExp = expValueToInteger(partyExp);
 
-            attacker.gainExp(_personalExp, _partyExp, true, false, white);
-            attacker.increaseEquipExp(_personalExp);
+            // Bots gain exp and level up server-side like anyone else: the exp counter lives on
+            // the Character and the threshold is ExpTable, so no client is needed.
+            boolean isBot = BotHelpers.isBot(attacker);
+            attacker.gainExp(_personalExp, _partyExp, !isBot, false, white);
+            if (!isBot) {
+                attacker.increaseEquipExp(_personalExp);
+            }
             attacker.raiseQuestMobCount(getId());
             VeteranHunterMedal.onMonsterKilled(attacker, this);
             // 特级挑战勋章复用怪物死亡事件，在角色已接任务时写入个人击杀进度。
@@ -1857,7 +1863,11 @@ public class Monster extends AbstractLoadedLife {
         Character newControllerWithPuppet = null;
 
         for (Character chr : getMap().getAllPlayers()) {
-            if (!chr.isHidden() && chr.isLoggedInWorld()) {   // 过滤已断线/awayFromWorld 的幽灵玩家，避免被选为 controller 候选
+            // Bots are real Character objects on the map but have no client streaming
+            // MoveMonster packets, so a bot controller leaves the mob frozen. Exclude
+            // them so only real players are ever auto-selected as controllers.
+            // v1.12 additionally filters disconnected/awayFromWorld ghost players.
+            if (!chr.isHidden() && chr.isLoggedInWorld() && !BotHelpers.isBot(chr)) {   // 过滤已断线/awayFromWorld 的幽灵玩家，避免被选为 controller 候选
                 int ctrlMonsSize = chr.getNumControlledMonsters();
 
                 if (isCharacterPuppetInVicinity(chr)) {
@@ -1920,6 +1930,13 @@ public class Monster extends AbstractLoadedLife {
      * player controller.
      */
     public void aggroSwitchController(Character newController, boolean immediateAggro) {
+        // Defense-in-depth for every direct-assign path (damage, auto-aggro, map
+        // transition, special move, revive): a bot has no client to drive mob movement,
+        // so never bind one. Guard before the lock/remove so a bot action can't even
+        // strip the current real controller. (null is the legitimate "clear" call.)
+        if (newController != null && BotHelpers.isBot(newController)) {
+            return;
+        }
         if (aggroUpdateLock.tryLock()) {
             try {
                 Character prevController = getController();

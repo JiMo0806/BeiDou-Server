@@ -1,0 +1,72 @@
+name: Build BeiDou-Bot Server
+
+on:
+  push:
+    branches: [main, master, bot-port, bot-port-1.12]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master, bot-port, bot-port-1.12]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Set up Node 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Build gms-ui (GM 后台前端)
+        working-directory: gms-ui
+        run: |
+          npm install --no-audit --no-fund
+          # 跳过 vue-tsc 类型检查，避免老依赖类型报错阻塞打包
+          npx vite build --config ./config/vite.config.prod.ts
+
+      - name: Embed UI into jar static resources
+        run: |
+          rm -rf gms-server/src/main/resources/static
+          mkdir -p gms-server/src/main/resources/static
+          cp -r gms-ui/dist/* gms-server/src/main/resources/static/
+          ls gms-server/src/main/resources/static/
+
+      - name: Build server jar
+        run: mvn -B -ntp -pl gms-server -am package -DskipTests
+
+      - name: Upload jar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BeiDou-jar
+          path: gms-server/target/BeiDou.jar
+          retention-days: 30
+
+  release:
+    # Tag pushes (e.g. v1.11-bot.1) publish the jar as a GitHub Release,
+    # which the NAS deployment can download directly.
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download jar artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: BeiDou-jar
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: BeiDou.jar
+          generate_release_notes: true

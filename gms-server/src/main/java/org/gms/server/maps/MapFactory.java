@@ -34,6 +34,8 @@ import org.gms.server.partyquest.GuardianSpawnPoint;
 import org.gms.util.DatabaseConnection;
 import org.gms.util.NumberTool;
 import org.gms.util.StringUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.awt.*;
 import java.sql.Connection;
@@ -47,6 +49,7 @@ import java.util.List;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class MapFactory {
+    private static final Logger log = LoggerFactory.getLogger(MapFactory.class);
     private static final Data nameData = DataProviderFactory.getDataProvider(WZFiles.STRING).getData("Map.img");
     private static final DataProvider mapSource = DataProviderFactory.getDataProvider(WZFiles.MAP);
 
@@ -145,12 +148,22 @@ public class MapFactory {
 
         String mapName = getMapName(mapid);
         Data mapData = mapSource.getData(mapName);    // source.getData issue with giving nulls in rare ocasions found thanks to MedicOP
+        if (mapData == null) {
+            // WZ 里没有这张地图（空文件/空目录/版本差异）。返回 null 让调用方走回退
+            // 逻辑（如登录时回退到射手村），而不是在这里 NPE 卡死玩家登录。
+            log.error("地图 {} ({}) 在 WZ 数据中不存在，返回 null", mapid, mapName);
+            return null;
+        }
         Data infoData = mapData.getChildByPath("info");
 
         String link = DataTool.getString(infoData.getChildByPath("link"), "");
         if (!link.equals("")) { //nexon made hundreds of dojo maps so to reduce the size they added links.
             mapName = getMapName(Integer.parseInt(link));
             mapData = mapSource.getData(mapName);
+            if (mapData == null) {
+                log.error("地图 {} 链接的目标地图 {} 在 WZ 数据中不存在，返回 null", mapid, mapName);
+                return null;
+            }
         }
         float monsterRate = 0;
         Data mobRate = infoData.getChildByPath("mobRate");

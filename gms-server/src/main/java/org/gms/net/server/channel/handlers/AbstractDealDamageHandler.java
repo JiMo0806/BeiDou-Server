@@ -104,6 +104,13 @@ public abstract class AbstractDealDamageHandler extends AbstractPacketHandler {
     }
 
     /**
+     * SoloMapling bot framework: bundles the hit delay with the damage lines
+     * for one target, so bots can broadcast attack packets that carry
+     * realistic per-target timing (v83 protocol writes this delay byte).
+     */
+    public record AttackTarget(short delay, List<Integer> damageLines) {}
+
+    /**
      * 封装一次距离校验最终采用的坐标样本。
      *
      * <p>攻击包到达时，服务端可能同时持有当前位置、瞬移前坐标、位移前坐标。

@@ -259,6 +259,113 @@ public abstract class AbstractMovementPacketHandler extends AbstractPacketHandle
         }
     }
 
+    /*
+    todo SM NOTE - this is for bot movement, mirrors updatePosition but is static so
+     the bot system can apply recorded movement packets without a handler instance.
+     */
+    public static void updatePositionBot(InPacket p, AnimatedMapObject target, int yOffset) throws EmptyMovementException {
+
+        byte numCommands = p.readByte();
+        if (numCommands < 1) {
+            throw new EmptyMovementException(p);
+        }
+        for (byte i = 0; i < numCommands; i++) {
+            byte command = p.readByte();
+            switch (command) {
+                case 0: // normal move
+                case 5:
+                case 17: { // Float
+                    //Absolute movement - only this is important for the server, other movement can be passed to the client
+                    Point beforePos = snapshotPosition(target);
+                    short xpos = p.readShort(); //is signed fine here?
+                    short ypos = p.readShort();
+                    Point afterPos = new Point(xpos, ypos + yOffset);
+                    target.setPosition(afterPos);
+                    p.skip(6); //xwobble = lea.readShort(); ywobble = lea.readShort(); fh = lea.readShort();
+                    byte newstate = p.readByte();
+                    target.setStance(newstate);
+                    short duration = p.readShort(); //duration
+                    recordRegularMove(target, beforePos, afterPos);
+                    break;
+                }
+                case 1:
+                case 2:
+                case 6: // fj
+                case 12:
+                case 13: // Shot-jump-back thing
+                case 16: // Float
+                case 18:
+                case 19: // Springs on maps
+                case 20: // Aran Combat Step
+                case 22: {
+                    Point beforePos = snapshotPosition(target);
+                    short deltaX = p.readShort();
+                    short deltaY = p.readShort();
+                    Point afterPos = target instanceof Character
+                            ? estimateRelativeMovePosition(beforePos, deltaX, deltaY)
+                            : null;
+                    byte newstate = p.readByte();
+                    if (afterPos != null) {
+                        target.setPosition(afterPos);
+                    }
+                    target.setStance(newstate);
+                    p.readShort(); //duration
+                    recordRegularMove(target, beforePos, afterPos);
+                    break;
+                }
+                case 3:
+                case 4: { // teleport disappear/appear
+                    handleTeleportMove(p, target, yOffset);
+                    break;
+                }
+                case 7: // assaulter
+                case 8: // assassinate
+                case 9: { // rush
+                    handleDashLikeMove(p, target, yOffset);
+                    break;
+                }
+                case 11: //chair
+                {
+                    handleChairMove(p, target);
+                    break;
+                }
+                case 14:
+                    p.skip(9); // jump down (?)
+                    break;
+                case 10: // Change Equip
+                    //ignored server-side
+                    p.readByte();
+                    break;
+                /*case 11: { // Chair
+                    short xpos = lea.readShort();
+                    short ypos = lea.readShort();
+                    short fh = lea.readShort();
+                    byte newstate = lea.readByte();
+                    short duration = lea.readShort();
+                    ChairMovement cm = new ChairMovement(command, new Point(xpos, ypos), duration, newstate);
+                    cm.setFh(fh);
+                    res.add(cm);
+                    break;
+                }*/
+                case 15: {
+                    handleJumpDownMove(p, target, yOffset);
+                    break;
+                }
+                case 21: {//Causes aran to do weird stuff when attacking o.o
+                    /*byte newstate = lea.readByte();
+                     short unk = lea.readShort();
+                     AranMovement am = new AranMovement(command, null, unk, newstate);
+                     res.add(am);*/
+                    p.skip(3);
+                    break;
+                }
+                default:
+                    log.warn("Unhandled Case: {}", command);
+                    throw new EmptyMovementException(p);
+            }
+        }
+    }
+
     /**
      * 处理瞬移动作（3/4）：同步坐标并在玩家对象上记录传送前后坐标。
      */

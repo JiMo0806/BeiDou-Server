@@ -18,6 +18,13 @@ mybatis-flex:
       url: jdbc:mysql://localhost:3306/beidou?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
       username: root
       password: root
+      # Bot-heavy server: parallel bot spawns hold connections while waiting on
+      # the MapManager map-load lock; the default pool of 8 deadlocks there.
+      # BotGeneration caps concurrent spawns at 6, this headroom keeps map
+      # loading + normal player traffic connection-hungry-free. max-wait makes
+      # any future exhaustion fail loudly instead of hanging forever.
+      max-active: 32
+      max-wait: 15000
   global-config:
     print-banner: false
 

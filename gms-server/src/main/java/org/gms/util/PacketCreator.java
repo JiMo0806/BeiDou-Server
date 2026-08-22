@@ -71,6 +71,7 @@ import org.gms.net.packet.Packet;
 import org.gms.net.server.PlayerCoolDownValueHolder;
 import org.gms.net.server.Server;
 import org.gms.net.server.channel.Channel;
+import org.gms.net.server.channel.handlers.AbstractDealDamageHandler.AttackTarget;
 import org.gms.net.server.channel.handlers.PlayerInteractionHandler;
 import org.gms.net.server.channel.handlers.SummonDamageHandler.SummonAttackEntry;
 import org.gms.net.server.channel.handlers.WhisperHandler;
@@ -2373,6 +2374,68 @@ public class PacketCreator {
                 }
                 for (Integer eachd : onedList) {
                     p.writeInt(eachd);
+                }
+            }
+        }
+    }
+
+    // SoloMapling bot framework: attack methods carrying per-target hit delay.
+    // Separate names (not overloads) because Map<Integer, AttackTarget> and
+    // Map<Integer, List<Integer>> share the same erasure.
+    public static Packet botCloseRangeAttack(Character chr, int skill, int skilllevel, int stance,
+                                             int numAttackedAndDamage, Map<Integer, AttackTarget> targets, int speed,
+                                             int direction, int display) {
+        final OutPacket p = OutPacket.create(SendOpcode.CLOSE_RANGE_ATTACK);
+        addBotAttackBody(p, chr, skill, skilllevel, stance, numAttackedAndDamage, 0, targets, speed, direction, display);
+        return p;
+    }
+
+    public static Packet botRangedAttack(Character chr, int skill, int skilllevel, int stance, int numAttackedAndDamage,
+                                         int projectile, Map<Integer, AttackTarget> targets, int speed, int direction,
+                                         int display) {
+        final OutPacket p = OutPacket.create(SendOpcode.RANGED_ATTACK);
+        addBotAttackBody(p, chr, skill, skilllevel, stance, numAttackedAndDamage, projectile, targets, speed, direction, display);
+        p.writeInt(0);
+        return p;
+    }
+
+    public static Packet botMagicAttack(Character chr, int skill, int skilllevel, int stance, int numAttackedAndDamage,
+                                        Map<Integer, AttackTarget> targets, int charge, int speed, int direction,
+                                        int display) {
+        final OutPacket p = OutPacket.create(SendOpcode.MAGIC_ATTACK);
+        addBotAttackBody(p, chr, skill, skilllevel, stance, numAttackedAndDamage, 0, targets, speed, direction, display);
+        if (charge != -1) {
+            p.writeInt(charge);
+        }
+        return p;
+    }
+
+    private static void addBotAttackBody(OutPacket p, Character chr, int skill, int skilllevel, int stance,
+                                         int numAttackedAndDamage, int projectile, Map<Integer, AttackTarget> targets,
+                                         int speed, int direction, int display) {
+        p.writeInt(chr.getId());
+        p.writeByte(numAttackedAndDamage);
+        p.writeByte(0x5B);//?
+        p.writeByte(skilllevel);
+        if (skilllevel > 0) {
+            p.writeInt(skill);
+        }
+        p.writeByte(display);
+        p.writeByte(direction);
+        p.writeByte(stance);
+        p.writeByte(speed);
+        p.writeByte(0x0A);
+        p.writeInt(projectile);
+        for (Map.Entry<Integer, AttackTarget> target : targets.entrySet()) {
+            AttackTarget value = target.getValue();
+            if (value != null) {
+                p.writeInt(target.getKey());
+                p.writeByte(0x0);
+                if (skill == 4211006) {
+                    p.writeByte(value.damageLines().size());
+                }
+                for (Integer damageLine : value.damageLines()) {
+                    p.writeInt(damageLine);
                 }
             }
         }

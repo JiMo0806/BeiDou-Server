@@ -684,6 +684,10 @@ public class Server {
             futures.add(initExecutor.submit(CashItemFactory::loadAllCashItems));
             futures.add(initExecutor.submit(Quest::loadAllQuests));
             futures.add(initExecutor.submit(SkillbookInformationProvider::loadAllSkillbookInformation));
+            // SoloMapling server data (bot equip metadata) - loaded here with the rest
+            // of the WZ-derived data so it's ready before any player can trigger the
+            // bot environment startup.
+            soloMapling.BotBootstrap.submitDataLoadTasks(initExecutor, futures);
             // Wait on all async tasks to complete
             for (Future<?> future : futures) {
                 future.get();
@@ -733,6 +737,7 @@ public class Server {
         log.info(I18nUtil.getLogMessage("Server.init.info5"));
 
         ThreadManager.getInstance().start();
+        soloMapling.BotBootstrap.afterDataLoad();
         initializeTimelyTasks();    // aggregated method for timely tasks thanks to lxconan
 
         try {
@@ -760,6 +765,10 @@ public class Server {
         for (Channel ch : this.getAllChannels()) {
             ch.reloadEventScriptManager();
         }
+
+        // SoloMapling cold-boot bot startup. Everything bots need is ready by here.
+        soloMapling.BotBootstrap.onServerReady();
+
         log.info(I18nUtil.getLogMessage("Server.init.info8"));
         online = true;
         Duration initDuration = Duration.between(beforeInit, Instant.now());

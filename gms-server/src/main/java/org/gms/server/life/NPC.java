@@ -26,6 +26,8 @@ import org.gms.server.ShopFactory;
 import org.gms.server.maps.MapObjectType;
 import org.gms.util.PacketCreator;
 
+import static soloMapling.server.MapleVersionManager.isNPCinCurrentVersion;
+
 public class NPC extends AbstractLoadedLife {
     private final NPCStats stats;
 
@@ -44,8 +46,10 @@ public class NPC extends AbstractLoadedLife {
 
     @Override
     public void sendSpawnData(Client client) {
-        client.sendPacket(PacketCreator.spawnNPC(this));
-        client.sendPacket(PacketCreator.spawnNPCRequestController(this, true));
+        if (isNPCinCurrentVersion((this.getId()))) {
+            client.sendPacket(PacketCreator.spawnNPC(this));
+            client.sendPacket(PacketCreator.spawnNPCRequestController(this, true));
+        }
     }
 
     @Override

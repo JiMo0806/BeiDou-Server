@@ -30,6 +30,9 @@ import org.gms.net.packet.InPacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.gms.server.ChatLogger;
+import soloMapling.ArtificialPlayer.BotBuffRequestSystem.BotBuffRequestHandler;
+import soloMapling.ArtificialPlayer.BotMessagingSystem.ChatMessage;
+import soloMapling.ArtificialPlayer.BotMessagingSystem.MessageQueue;
 import org.gms.util.PacketCreator;
 
 public final class GeneralChatHandler extends AbstractPacketHandler {
@@ -39,7 +42,7 @@ public final class GeneralChatHandler extends AbstractPacketHandler {
     public void handlePacket(InPacket p, Client c) {
         String s = p.readString();
         Character chr = c.getPlayer();
-        if (chr.getAutoBanManager().getLastSpam(7) + 200 > currentServerTime()) {
+        if (chr.getAutobanManager().getLastSpam(7) + 200 > currentServerTime()) {
             c.sendPacket(PacketCreator.enableActions());
             return;
         }
@@ -59,6 +62,10 @@ public final class GeneralChatHandler extends AbstractPacketHandler {
                 return;
             }
 
+            MessageQueue.getInstance().addMessage("primary", new ChatMessage(c.getPlayer(), s)); // SM NOTE Allows player to interact with bots.
+
+            BotBuffRequestHandler.tryHandle(chr, s); // SM: "hs pls" etc -> nearest eligible bot grants the buff
+
             if (!chr.isHidden()) {
                 chr.getMap().broadcastMessage(PacketCreator.getChatText(chr.getId(), s, chr.getWhiteChat(), show));
                 ChatLogger.log(c, "General", s);
@@ -67,7 +74,7 @@ public final class GeneralChatHandler extends AbstractPacketHandler {
                 ChatLogger.log(c, "GM General", s);
             }
 
-            chr.getAutoBanManager().spam(7);
+            chr.getAutobanManager().spam(7);
         }
     }
 }

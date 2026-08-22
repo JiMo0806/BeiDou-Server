@@ -1,0 +1,31 @@
+# Generic town small-talk for ambient bot-to-bot conversation (BotChatterSystem).
+# Each exchange is an ORDERED back-and-forth; speakers alternate A, B, A, B... (2-4 turns).
+# {MAP} resolves to the live map name against the SPEAKING bot; a line whose tokens can't resolve is
+# dropped rather than spoken raw. Keep lines short + lowercase (v83 client, no emoji).
+# Shared across all towns to start (per-town flavor files can override later). YAML-first; bulk-generate
+# more via the dialogue batch-generation playbook. Loaded by TownChatterLines.
+exchanges:
+  - ["你去过天空之城了吗", "还没，还在攒船票钱", "值得去，风景绝了"]
+  - ["披风不错啊", "谢了，自己砸的卷", "运气真好，我砸从来没成过"]
+  - ["最近练级练得咋样", "慢是慢，但在涨", "一样，手都练酸了哈哈"]
+  - ["{MAP}今天人挺多啊", "是啊，看到人多还挺开心", "总比一个人闷头刷强"]
+  - ["你在自由市场卖东西吗", "就几张家卷", "我待会过去看看"]
+  - ["你转职了吗", "昨晚终于转了", "恭喜！我当年也是磨了好久"]
+  - ["你最近在哪儿练级", "还是蹲老地方", "经典，永远不过时"]
+  - ["这儿有人一起做组队任务吗", "没有，全挂机呢", "正常哈哈"]
+  - ["你装备挺干净的", "攒了好几周枫币", "确实值"]
+  - ["今天爆率你看了吗", "看了，挺给力的", "趁爆率还在赶紧刷"]
+  - ["你觉得我该洗点吗", "不用，你这样挺好", "行吧，你说的对"]
+  - ["{MAP}今天有点冷清", "还早着呢", "也是，高峰在后面"]
+  - ["现在卷轴什么价", "贵得离谱哈哈", "价格就没降过"]
+  - ["那个boss老是打死我", "下次多带点药", "确实有道理"]
+  - ["你有公会吗", "正在找一个呢", "我帮你在我们公会问问"]
+  - ["有多的药水吗", "来，给你几瓶", "救星啊，谢了"]
+  - ["今天累坏了吧", "嗯，就来放松放松", "一样，小镇挺安静的"]
+  - ["维护后还卡吗", "今天好像好多了", "可算修好了，之前真难受"]
+  - ["你现在多少级了", "快到下次转职了", "就差一点，加油"]
+  - ["这个位置有人吗", "让给你，我正要走", "多谢，回见"]
+  - ["听说活动了吗", "没啊，怎么了", "这周末双倍经验"]
+  - ["帽子不错，哪买的", "商城，没忍住", "哈哈理解"]
+  - ["在等人吗", "就随便看看路人", "哈，说实话我也是"]
+  - ["{MAP}天气不错啊", "真希望现实里也这样", "哈哈真实"]
