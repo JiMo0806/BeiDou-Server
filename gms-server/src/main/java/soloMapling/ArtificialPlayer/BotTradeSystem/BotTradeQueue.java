@@ -1,6 +1,7 @@
 package soloMapling.ArtificialPlayer.BotTradeSystem;
 
 import org.gms.client.Character;
+import soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,6 +25,9 @@ public class BotTradeQueue {
     public void addTradeRequest(Character fakechar, Character partner) {
         debugprint("addTradeRequest");
         queues.putIfAbsent(fakechar, partner);
+        // 立刻唤醒 bot 的宏脑，让下一个 tick 就能接受邀请——否则慢速调度下
+        // （未被观察时可达 60-120 秒）玩家的交易邀请会一直挂着没人理。
+        BotRecruitManager.wakeBotForInvite(fakechar);
     }
 
     public Character getTradeRequest(Character fakechar) {

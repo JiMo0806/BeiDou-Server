@@ -241,6 +241,9 @@ public abstract class BotSM implements EventSubscriber {
                     break;
                 }
                 BotIdleStandingUpdate(getChr());
+                // 任意 bot 都能被玩家邀请交易：先接下邀请，下个 tick verifyTradePartner 切入 TRADING。
+                // 商人型 bot 自己也会调 checkForTrades，重复调用无副作用（队列为空直接返回）。
+                checkForTrades();
 //                if (!checkMainPlayersOnMap()) {
 //                    state = BotState.PAUSE;
 //                    log("Moving to PAUSE: " + getChr().getName());
