@@ -6,6 +6,7 @@ import soloMapling.ArtificialPlayer.ConversationManager;
 import soloMapling.ArtificialPlayer.BotDialogueHandler;
 import soloMapling.ArtificialPlayer.BotFlavorSystem.BotFlavor;
 import soloMapling.ArtificialPlayer.BotFlavorSystem.LevelUpCongrats;
+import soloMapling.ArtificialPlayer.BotMessagingSystem.BotLLMService;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.ChatMessage;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.MessageQueue;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyQueue;
@@ -373,6 +374,11 @@ public class SocialBot extends BotSM {
         }
 
         if (category == null) {
+            // 自由聊天：没命中任何功能关键词时先问大模型（bot-config.properties 的 llm_* 配置，
+            // 异步调用不阻塞 tick 线程），不可用/失败则回落本地随机台词。
+            if (tryLlmReply(content, player)) {
+                return;
+            }
             category = "WhatsUp";
         }
 
@@ -449,6 +455,49 @@ public class SocialBot extends BotSM {
         }
         BotRecruitManager.setPendingLeader(chr.getId(), recruiterId);
         BotTypeManager.convertBotType(chr, BotTypeManager.BotType.FOLLOWER_BOT);
+    }
+
+    // --- LLM free chat ---
+
+    // 把没命中功能关键词的自由消息交给大模型（llm_enabled=true 且不在冷却时）。HTTP 调用
+    // 放进独立虚拟线程，成功后延迟一两秒"打字回复"；拿不到回复就同步回落 WhatsUp 台词，
+    // 玩家侧感知不到接口故障。
+    private boolean tryLlmReply(String content, Character player) {
+        Character chr = getChr();
+        if (!BotLLMService.ready(chr.getId())) {
+            return false;
+        }
+        String playerName = player.getName();
+        String mapName = chr.getMap().getMapName();
+        Thread.ofVirtual().name("bot-llm-" + chr.getId()).start(() -> {
+            String reply;
+            try {
+                reply = BotLLMService.chat(chr.getId(), chr, playerName, mapName, content);
+            } catch (Exception e) {
+                reply = null;
+            }
+            if (reply == null) {
+                // 回落本地台词（和 WhatsUp 分支同款节拍）
+                String line = getRandomLine("WhatsUp", player);
+                int emote = getRandomEmote("WhatsUp");
+                if (line != null) {
+                    BotSpeak(chr, line);
+                }
+                if (emote > 0) {
+                    BotEmote(chr, emote);
+                }
+                showInteractiveOptions(player);
+                return;
+            }
+            BotTiming.Chain chain = BotTiming.chain()
+                    .stopUnless(() -> isConversationWith(player))
+                    .pauseRandom(1500, 3000)
+                    .run(() -> botFaceTowardsPoint(chr, player.getPosition()))
+                    .run(() -> BotSpeak(chr, reply))
+                    .run(() -> showInteractiveOptions(player));
+            chain.start();
+        });
+        return true;
     }
 
     // --- Response types ---
@@ -569,6 +618,7 @@ public class SocialBot extends BotSM {
         if (respondant != null) {
             expirePlayerChatCommands(respondant);
         }
+        BotLLMService.clear(getChr().getId()); // 对话结束，大模型的会话记忆一并清空
         getInteractors().resetRespondant();
         socialState = SocialBotState.IDLE_AMBIENT;
         lastRespondantMessageTime = 0;
