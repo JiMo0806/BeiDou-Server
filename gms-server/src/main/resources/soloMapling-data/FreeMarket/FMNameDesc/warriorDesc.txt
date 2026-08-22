@@ -1,91 +1,91 @@
-The Warrior's Keep
-Steel & Strength
-Blade Bazaar
-Heavy Hitter's Shop
-Armored Armory
-The Crusader's Cache
-Sword & Shield Co.
-The Battle Forge
-Iron Will Armory
-Two-Handed Traders
-The Helm Vault
-Warrior's Stockpile
-Brute Force Gear
-The Berserker's Bin
-Knight's Arsenal
-Tank Top Shop
-Frontline Armory
-The Brawler's Bench
-Valhalla Vendors
-The Paladin's Pile
-Dragon Knight Depot
-The Hero's Hoard
-Spearman Surplus
-Page's Provisions
-Fighter's Find
-The White Knight Shop
-Crusader's Corner
-Guardian Gear Co.
-The Defender's Den
-HP Warrior Gear
-Strength Store
-STR Gang Shop
-The Melee Market
-Slash & Smash
-Heavy Armor Hub
-Plate Mail Plaza
-Brave Blades
-The Attack Shop
-Power Strike Picks
-The Ground Smash
-Combo King's Cache
-Brandish Bazaar
-Rage Gear Depot
-Power Guard Parts
-Achilles' Armory
-Rush Hour Gear
-The Maple Warrior
-Beholder's Bounty
-Sacrifice Shop
-The Dragon Roar
-Helm Splitter Hub
-Monster Magnet Mart
-The Brave Warrior
-Swordsman's Supply
-The Fighter's Forge
-Valor & Victory
-The Champion's Chest
-Gladiator Gear
-Conqueror's Cache
-Battle Cry Bazaar
-The Shield Wall
-Titan's Trove
-Warlord's Wares
-The Honor Guard
-Sentinel's Stock
-Noble Knight Gear
-Royal Guard Shop
-The Fortress
-Bastion Blades
-Stronghold Supply
-The Iron Curtain
-Hammer & Anvil
-The War Room
-Combat Ready Co.
-Spartan Supply
-Legion Armory
-The Oath Keeper
-Duty & Steel
-Rampart Gear
-The Battle Standard
-Claymore Cache
-Zweihander Zone
-Polearm Palace
-Spear & Shield
-The Pike Shop
-Halberd Haven
-Mace & Morningstar
-The Blunt Force
-Axe & Armor
-The Lumberjack
-Cleave & Conquer
+战士堡垒
+钢铁与力量
+刀剑集市
+重击手商店
+重甲军械库
+十字军的珍藏
+剑盾公司
+战斗锻造厂
+钢铁意志武库
+双手武器商人
+头盔金库
+战士的囤货
+蛮力装备
+狂战士的仓库
+骑士军械库
+肉盾专卖店
+前线军械库
+斗士的板凳
+英灵殿商人
+圣骑士的货堆
+龙骑士仓库
+英雄的宝库
+枪战士盈余店
+随从的补给
+斗士寻宝店
+白银骑士商店
+十字军一角
+守护者装备行
+防御者的巢穴
+血牛战士装备
+力量商店
+力量帮商店
+近战市场
+劈砍与粉碎
+重甲枢纽
+板甲广场
+勇者之刃
+攻击商店
+强力一击精选
+地裂斩小铺
+连击王者收藏
+挥砍集市
+狂怒装备仓库
+伤害反弹零件
+阿喀琉斯武库
+突进装备
+枫叶战士
+魔眼的恩赐
+舍身商店
+龙咆哮
+破盔斩枢纽
+怪物磁铁市场
+无畏勇士
+剑客的补给
+斗士的锻造厂
+勇气与胜利
+冠军的宝箱
+角斗士装备
+征服者的收藏
+战吼集市
+盾墙
+泰坦的宝库
+军阀的货物
+荣誉护卫
+哨兵的库存
+高贵骑士装备
+皇家卫队商店
+要塞
+壁垒之刃
+据点补给
+铁幕
+铁锤与铁砧
+作战室
+战斗就绪公司
+斯巴达补给
+军团军械库
+誓约守护者
+职责与钢铁
+壁垒装备
+战旗商店
+双手大剑收藏
+巨剑专区
+长柄武器宫殿
+矛与盾
+长枪商店
+戟的避风港
+钉头锤与晨星锤
+钝器专卖店
+斧与甲
+伐木工
+劈砍与征服

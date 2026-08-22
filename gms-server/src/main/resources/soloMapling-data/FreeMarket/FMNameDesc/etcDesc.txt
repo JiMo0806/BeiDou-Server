@@ -1,92 +1,92 @@
-Crystal Cavern
-The Ore Emporium
-Gemstone Gathering
-Miner's Marvels
-Forged & Found
-The Crystal Vault
-Raw Material Market
-Shard & Stone Depot
-The Glittering Mine
-Metal & Mineral Co.
-Gleaming Treasures
-Veins of Valor
-The Mystic Mine
-Precious Prospects
-Refined Radiance
-Gilded Geodes
-The Ore & Alloy Shop
-Mineral Mysteries
-The Shard Bazaar
-Gems & Gold Galore
-Forged Wonders
-The Crystalline Hoard
-Alloyed Treasures
-Rare Earth Depot
-Ethereal Elements
-Elemental Emporium
-The Gem Crafter
-Ore & Crystal Co.
-Heavenly Metals
-The Gleaming Lode
-Pickaxe Paradise
-Refinery Row
-Nugget Nook
-The Stone Cellar
-Quarry Goods Co.
-Smelted Surplus
-Ingot Exchange
-The Vein Market
-Deep Mine Depot
-Fossil & Fragment
-The Crafting Crate
-Material Matters
-The Hoarder's Heap
-Monster Parts Co.
-Loot & Leftovers
-Trophy Trove
-Drop Table Deals
-ETC Overflow
-The Collector's Bin
-Spare Parts Bazaar
-Quest Item Depot
-Odds & Ends Market
-The Junk Drawer
-Salvage & Supply
-Reagent Reserve
-Component Corner
-The Scrap Yard
-Bits & Pieces Shop
-Leftover Loot Co.
-The Surplus Stash
-Gathered Goods
-Harvest & Hoard
-The Stockpile
-Resource Rack
-Ingredient Index
-Raw Goods Galore
-The Gathering Hall
-Natural Resources
-Chunk & Crystal
-Unrefined Riches
-The Earthen Cache
-Mineral Mart
-Prospector's Pick
-Dig Site Deals
-The Deposit Box
-Rubble & Riches
-The Fragment Forge
-Stardust & Shards
-Moonstone Market
-Adamantium Alley
-Mithril & More
-Orichalcum Outlet
-Steel Seed Supply
-The Smelting Pot
-Alloy Avenue
-The Foundry Floor
-Plate & Powder Co.
-Bronze Age Bazaar
-Iron Vein Vendors
-The Furnace Front
-Cobalt & Carbon
-Ember Ore Exchange
+水晶洞窟
+矿石百货店
+宝石集散地
+矿工的奇珍
+锻造与寻获
+水晶金库
+原材料市场
+碎片与矿石仓库
+闪亮矿区
+金属矿物公司
+闪耀的宝藏
+勇气矿脉
+神秘矿井
+珍贵前景
+精炼光辉
+镀金晶球
+矿石合金商店
+矿物之谜
+碎片集市
+宝石与黄金
+锻造奇观
+水晶囤积库
+合金宝藏
+稀土仓库
+空灵元素
+元素百货店
+宝石工匠
+矿石水晶公司
+天堂金属
+闪光矿层
+镐头天堂
+精炼厂一条街
+天然金块角
+石头地窖
+采石场货栈
+熔炼剩余品
+锭块交易所
+矿脉市场
+深矿仓库
+化石与碎片
+手工材料箱
+材料很重要
+囤积者的货堆
+怪物部件公司
+战利品与残余
+纪念品宝库
+掉落表特卖
+杂物溢出仓
+收藏家的箱子
+零配件集市
+任务道具仓库
+杂货市场
+垃圾抽屉
+回收与补给
+试剂储备处
+零件一角
+废料场
+零碎小铺
+剩余战利品行
+盈余私藏
+采集来的货物
+丰收与囤积
+储备库
+资源架
+材料索引
+生货大集合
+集会所
+天然资源
+矿块与水晶
+未精炼财富
+大地收藏
+矿物市场
+探矿者之选
+挖掘现场特卖
+保险箱
+碎石与财富
+碎片锻造厂
+星尘与残片
+月长石市场
+精金小巷
+秘银与更多
+奥里哈根专卖
+钢胚补给
+熔炼坩埚
+合金大道
+铸造厂车间
+板材粉末公司
+青铜时代集市
+铁矿脉商人
+熔炉前线
+钴与碳
+余烬矿石交易所

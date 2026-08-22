@@ -23,7 +23,7 @@ public class BotCommands {
         int level = 5;
         final int dice1 = Randomizer.nextInt(6) + 1;
         final int dice2 = Randomizer.nextInt(6) + 1;
-        SocialCommands.BotSpeak(fakechar, String.format("test %d %d", dice1, dice2));
+        SocialCommands.BotSpeak(fakechar, String.format("掷出 %d 和 %d", dice1, dice2));
 //        fakechar.getMap().broadcastMessage(fakechar, PacketCreator.EffectPacket.showDiceEffect(fakechar.getId(), skillid, dice1, -1, level), false);
 //        fakechar.getMap().broadcastMessage(fakechar, PacketCreator.EffectPacket.showDoubleDiceEffect(fakechar.getId(), skillid, dice2, -1, level), false);
         return new int[]{dice1, dice2};

@@ -34,7 +34,7 @@ public class GameZoneHostBot extends BotSM {
     private static final int DRINK_WATER = 2022000;
     private static final int DRINK_ELIXIR = 2000012;
 
-    private static final String[] DRINK_NAMES = {"Coke", "Water", "Elixir"};
+    private static final String[] DRINK_NAMES = {"可乐", "矿泉水", "药水"};
     private static final int[] DRINK_IDS = {DRINK_COKE, DRINK_WATER, DRINK_ELIXIR};
 
     private List<String> hint;
@@ -224,7 +224,7 @@ public class GameZoneHostBot extends BotSM {
         if (System.currentTimeMillis() < endTime) {
             processMessages();
         } else {
-            BotSpeak(getChr(), "Talk to me again if you're ready.");
+            BotSpeak(getChr(), "想喝的时候再来找我吧。");
             state = BotState.FINISHED;
             resetHostBotState();
         }
@@ -261,27 +261,27 @@ public class GameZoneHostBot extends BotSM {
     }
 
     private void handleDrinkOfferResponse(String content) {
-        if (content.contains("yes")) {
+        if (content.contains("yes") || content.contains("要") || content.contains("好") || content.contains("嗯")) {
             drinkAccepted = true;
-        } else if (content.contains("no")) {
+        } else if (content.contains("no") || content.contains("不") || content.contains("不用")) {
             drinkAccepted = false;
         }
     }
 
     private void handleDrinkPickResponse(String content) {
         // Ignore stale yes/no from the previous drink offer phase
-        if (content.contains("yes") || content.contains("no")) {
+        if (content.contains("yes") || content.contains("no") || content.contains("要") || content.contains("好") || content.contains("不")) {
             return;
         }
         for (int i = 0; i < DRINK_NAMES.length; i++) {
             if (content.contains(DRINK_NAMES[i].toLowerCase())) {
                 selectedDrink = DRINK_IDS[i];
-                BotSpeak(getChr(), String.format("One %s, coming right up!", DRINK_NAMES[i]));
+                BotSpeak(getChr(), String.format("一杯%s马上来！", DRINK_NAMES[i]));
                 waitFor(2000); // beat before SERVE_DRINK ticks
                 return;
             }
         }
-        BotSpeak(getChr(), "Hmm, I don't have that. Try again!");
+        BotSpeak(getChr(), "嗯，没有这个哦，换一个试试！");
         BotEmote(getChr(), 6);
     }
 }

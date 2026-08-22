@@ -21,15 +21,15 @@ public final class OPQRecruitMessages {
     private OPQRecruitMessages() {}
 
     private static final List<String> PREFIXES = new ArrayList<>(Arrays.asList(
-            "J>", "Joining>", "J>>", "Join>", "LFP>", "lf>"
+            "组队>", "招人>", "来人>", "速来>", "求组>", "++"
     ));
 
     private static final List<String> PQ_NAMES = new ArrayList<>(Arrays.asList(
-            "OPQ", "Orbis PQ", "Orbis Party Quest", "pq", "Orbis", "OPQ please"
+            "天空组队", "天空任务", "天空之塔", "OPQ", "天空组队任务", "打天空"
     ));
 
     private static final List<String> FILLERS = new ArrayList<>(Arrays.asList(
-            "@@@@@@@@", "!!!", "plz", "asap"
+            "!!!!!!", "速来", "急", "在线等"
     ));
 
     public static String generateRecruitMessage(Character chr) {
@@ -44,7 +44,7 @@ public final class OPQRecruitMessages {
         // 35% chance to self-tag with level+job ("Lvl 55 Priest J> OPQ" style).
         if (chr != null && random.nextDouble() < 0.35) {
             try {
-                sb.insert(0, "Lvl " + chr.getLevel() + " " + chr.getJob().name() + " ");
+                sb.insert(0, chr.getLevel() + "级 ");
             } catch (Exception ignored) {
                 // Character APIs missing something; skip the self-tag.
             }
