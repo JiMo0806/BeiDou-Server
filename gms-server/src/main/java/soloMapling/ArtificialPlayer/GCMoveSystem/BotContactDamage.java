@@ -4,6 +4,7 @@ import org.gms.client.Character;
 import org.gms.server.life.Monster;
 import org.gms.server.maps.MapObject;
 import org.gms.server.maps.MapObjectType;
+import soloMapling.ArtificialPlayer.BotFlavorSystem.BotReactionFlavor;
 import soloMapling.server.MethodScheduler;
 import org.gms.util.PacketCreator;
 
@@ -158,6 +159,10 @@ final class BotContactDamage {
 
         entry.mobHitCooldownMs = BotMovementManager.delayAfterCurrentTick(MOB_HIT_COOLDOWN_MS);
         markAlerted(entry);
+
+        if (dmg > 0) {
+            BotReactionFlavor.onMobHit(bot); // occasional ouch emote/yelp (observed-map gated)
+        }
 
         if (dmg <= 0 || !shouldApplyMobKnockback(entry, bot)) {
             return; // miss flash, climbing, or a warrior who braced - no recoil

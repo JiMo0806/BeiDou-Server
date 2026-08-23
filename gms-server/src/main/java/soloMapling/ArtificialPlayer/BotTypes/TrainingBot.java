@@ -32,6 +32,7 @@ import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 import soloMapling.server.EventMessageSystem.EventBus;
 import soloMapling.server.EventMessageSystem.EventFactory;
 import soloMapling.server.ExecutorServiceManager;
+import soloMapling.server.BotTiming;
 
 import java.awt.Point;
 import java.util.ArrayList;
@@ -1077,6 +1078,8 @@ public class TrainingBot extends BotSM implements CombatTickable {
             Character recruiter = chr.getClient().getChannelServer()
                     .getPlayerStorage().getCharacterById(recruiterId);
             sayRecruit("PartyJoined", recruiter);
+            // SM NOTE: a quick wave hello to the leader after joining
+            BotTiming.afterRandom(800, 2000, () -> BotEmote(chr, 7));
             // No re-typing: a partied TrainingBot keeps grinding; DECIDE is now party-aware.
         }
     }

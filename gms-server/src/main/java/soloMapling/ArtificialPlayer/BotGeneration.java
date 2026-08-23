@@ -7,6 +7,7 @@ import org.gms.config.GameConfig;
 import org.gms.server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver;
 import soloMapling.ArtificialPlayer.BotBuffRequestSystem.BotBuffRequestHandler;
+import soloMapling.ArtificialPlayer.BotFlavorSystem.BotReactionFlavor;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.server.SoloMaplingConstants;
 import soloMapling.server.SoloMaplingUtilities;
@@ -240,12 +241,24 @@ public class BotGeneration {
     }
 
     public static void removeBotFromServer(Character fakechar) {
+        // SM NOTE: a farewell beat when someone is watching - wave and a goodbye line right before
+        // the bot vanishes, so departures read as "logged off" instead of popping out of existence.
+        try {
+            if (fakechar.getMap() != null
+                    && soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(fakechar.getMapId())) {
+                BotEmote(fakechar, 7);
+                BotSpeak(fakechar, "我先下了，回头见！");
+            }
+        } catch (Exception ignored) {
+            // departure garnish must never block the actual removal
+        }
         fakechar.getMap().removePlayer(fakechar);
         channel.removePlayer(fakechar);
         world.getPlayerStorage().removePlayer(fakechar.getId());
         CharacterStorage.removeActiveBot(fakechar.getId());//
         BotBuffDriver.clearBot(fakechar.getId());   // Phase 3a: release buff recast timers
         BotBuffRequestHandler.clearBot(fakechar.getId());   // release chat-buff-request cooldown
+        BotReactionFlavor.forget(fakechar);   // release reaction cooldowns
     }
 
     private static void addBotToServer(Character fakechar) {

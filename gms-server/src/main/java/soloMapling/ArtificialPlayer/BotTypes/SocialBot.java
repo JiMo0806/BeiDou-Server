@@ -460,6 +460,8 @@ public class SocialBot extends BotSM {
         if (line != null) {
             BotSpeak(chr, line);
         }
+        // SM NOTE: a quick wave hello to the leader after joining - reads like a real player greeting
+        BotTiming.afterRandom(800, 2000, () -> BotEmote(chr, 7));
         BotRecruitManager.setPendingLeader(chr.getId(), recruiterId);
         BotTypeManager.convertBotType(chr, BotTypeManager.BotType.FOLLOWER_BOT);
     }

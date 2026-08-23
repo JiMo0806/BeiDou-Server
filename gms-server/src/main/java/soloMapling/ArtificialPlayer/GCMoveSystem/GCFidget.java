@@ -29,6 +29,11 @@ final class GCFidget {
     private static final int RETURN_DIST = 70;       // drifted past this -> walk back to the anchor
     private static final int DUCK_MIN_MS = 900;
     private static final int DUCK_MAX_MS = 1900;
+    // SM NOTE: "gaze at the scenery" - a longer stand-still-and-look beat. A real idle player
+    // sometimes just stands there a while; we model that as an extended rest (no action) plus
+    // one face turn so it reads as daydreaming, not frozen.
+    private static final long GAZE_REST_MS_MIN = 10_000;
+    private static final long GAZE_REST_MS_MAX = 28_000;
 
     private static final ScheduledExecutorService POOL = Executors.newScheduledThreadPool(1, r -> {
         Thread t = new Thread(r, "gcfidget-poll");
@@ -117,10 +122,15 @@ final class GCFidget {
             return;
         }
 
-        switch (ThreadLocalRandom.current().nextInt(4)) {
+        switch (ThreadLocalRandom.current().nextInt(5)) {
             case 0 -> GCMovement.turnAround(bot);
             case 1 -> GCMovement.duck(bot, ThreadLocalRandom.current().nextInt(DUCK_MIN_MS, DUCK_MAX_MS));
             case 2 -> GCMovement.jumpInPlace(bot);
+            case 3 -> {
+                // gaze at the scenery: turn to a random side, then just stand there a long beat
+                GCMovement.face(bot, ThreadLocalRandom.current().nextBoolean());
+                s.nextActionAtMs = now + ThreadLocalRandom.current().nextLong(GAZE_REST_MS_MIN, GAZE_REST_MS_MAX);
+            }
             default -> {
                 int dx = ThreadLocalRandom.current().nextInt(-WANDER_PX, WANDER_PX + 1);
                 GCMovement.nudgeTo(bot, s.base.x + dx, s.base.y); // small wander near the anchor

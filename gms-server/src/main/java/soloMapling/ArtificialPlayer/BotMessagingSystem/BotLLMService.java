@@ -149,6 +149,60 @@ public final class BotLLMService {
         }
     }
 
+    // SM NOTE: 一次性氛围台词（击杀/受击/交易收尾等事件反应）：不写会话记忆、不依赖
+    // 对话上下文，instruction 是给模型的舞台指示。失败/未启用返回 null，调用方回落本地台词池。
+    public static String flavorReply(int botId, Character bot, String playerName, String mapName, String instruction) {
+        if (!isEnabled() || System.currentTimeMillis() < CIRCUIT_OPEN_UNTIL) {
+            return null;
+        }
+        LAST_CALL.put(botId, System.currentTimeMillis());
+        try {
+            String url = BotConfigFile.getString("llm_api_url", DEFAULT_API_URL);
+            String model = BotConfigFile.getString("llm_model", DEFAULT_MODEL);
+            String apiKey = BotConfigFile.getString("llm_api_key", DEFAULT_API_KEY);
+            int timeoutMs = BotConfigFile.getInt("llm_timeout_ms", 5000);
+
+            ObjectNode root = MAPPER.createObjectNode();
+            root.put("model", model);
+            root.put("temperature", 0.9);
+            root.put("max_tokens", 100);
+            ArrayNode messages = root.putArray("messages");
+            ObjectNode system = messages.addObject();
+            system.put("role", "system");
+            system.put("content", systemPrompt(bot.getName(), playerName, mapName));
+            ObjectNode user = messages.addObject();
+            user.put("role", "user");
+            user.put("content", instruction);
+
+            HttpRequest req = HttpRequest.newBuilder(URI.create(url))
+                    .timeout(Duration.ofMillis(timeoutMs))
+                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(MAPPER.writeValueAsString(root)))
+                    .build();
+            HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
+            if (resp.statusCode() != 200) {
+                onApiFailure("HTTP " + resp.statusCode());
+                return null;
+            }
+            String content = MAPPER.readTree(resp.body()).path("choices").path(0)
+                    .path("message").path("content").asText(null);
+            if (content == null || content.isBlank()) {
+                onApiFailure("empty flavor reply");
+                return null;
+            }
+            content = sanitize(content);
+            if (content.isEmpty()) {
+                return null;
+            }
+            CONSECUTIVE_FAILURES.set(0);
+            return content.length() > MAX_REPLY_CHARS ? content.substring(0, MAX_REPLY_CHARS) : content;
+        } catch (Exception e) {
+            onApiFailure(e.getMessage());
+            return null;
+        }
+    }
+
     private static String request(String botName, String playerName, String mapName, String userMessage, Deque<String[]> history)
             throws Exception {
         String url = BotConfigFile.getString("llm_api_url", DEFAULT_API_URL);

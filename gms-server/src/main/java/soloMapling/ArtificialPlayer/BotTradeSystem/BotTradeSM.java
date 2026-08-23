@@ -5,6 +5,7 @@ import org.gms.client.inventory.Equip;
 import org.gms.client.inventory.Item;
 import org.gms.server.Trade;
 import soloMapling.ArtificialPlayer.BotBlockList;
+import soloMapling.ArtificialPlayer.BotFlavorSystem.BotReactionFlavor;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.FreeMarket.FMEquip;
 import soloMapling.FreeMarket.FMItem;
@@ -63,6 +64,14 @@ public class BotTradeSM {
     private long lastCounterMs = 0;
     private static final int MAX_HAGGLES = 3;
     private static final long COUNTER_INTERVAL_MS = 3000;
+
+    // 交易收尾的本地台词池（LLM 不可用/未启用时的回落，行为与之前完全一致）
+    private static final String[] TRADE_THANKS_LINES = {
+            "谢谢惠顾！", "合作愉快！", "慢走啊，下次再来！", "成交愉快~"
+    };
+    private static final String[] TRADE_CANCELLED_LINES = {
+            "你怎么取消了呀？", "哎呀，白忙活了", "好吧好吧……", "下次想好再来找我"
+    };
 
 
     protected BotTradeSM.TradeState tradeState;
@@ -214,10 +223,14 @@ public class BotTradeSM {
 
                 if (lastTradeResult != Trade.TradeResult.SUCCESSFUL) {
                     BotEmote(getChr(), 4);
-                    BotSpeak(getChr(), "你怎么取消了呀？");
+                    BotReactionFlavor.speakFlavor(getChr(),
+                            "（旁白：交易刚被对方取消了，说一句简短的抱怨，不超过10个字）",
+                            TRADE_CANCELLED_LINES);
                 } else {
                     BotEmote(getChr(), 2);
-                    BotSpeak(getChr(), "谢谢惠顾！");
+                    BotReactionFlavor.speakFlavor(getChr(),
+                            "（旁白：交易刚顺利成交，说一句简短的道别或感谢，不超过10个字）",
+                            TRADE_THANKS_LINES);
                     getParent().setLastTradeResult(Trade.TradeResult.SUCCESSFUL);
                 }
                 getParent().waitFor(2000); // farewell beat before COMPLETED ticks

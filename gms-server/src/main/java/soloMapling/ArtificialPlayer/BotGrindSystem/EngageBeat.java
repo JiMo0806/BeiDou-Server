@@ -3,6 +3,7 @@ package soloMapling.ArtificialPlayer.BotGrindSystem;
 import org.gms.client.Character;
 import org.gms.server.life.Monster;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
+import soloMapling.ArtificialPlayer.BotFlavorSystem.BotReactionFlavor;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 
 import java.awt.Point;
@@ -100,6 +101,7 @@ final class EngageBeat {
         if (r != null && r.killed()) {
             b.targetOid = -1; // re-acquire the next mob
             b.lastKillMs = now();
+            BotReactionFlavor.onKill(chr); // occasional post-kill grin/quip (observed-map gated)
         }
         return r;
     }
