@@ -600,20 +600,29 @@ public class SocialBot extends BotSM {
 
     private void showBusyHint(Character player) {
         player.yellowMessage("They seem busy...");
-        player.getClient().sendPacket(PacketCreator.sendHint("They seem busy...", 150, 5));
         player.getClient().sendPacket(PacketCreator.enableActions());
         MethodScheduler.runAfterDelay(() -> expirePlayerChatCommands(player), 5000);
     }
 
+    // SM NOTE: 点名对话黑屏根因（第三轮）——PLAYER_HINT 弹窗菜单包本身：点名后 bot 会弹
+    // 选项气泡（1. What's up? 等），玩家一发文字，老客户端在"输入中 + 菜单悬停"状态下撞到
+    // hint 包就黑屏卡死（前两轮清的是清除包/防抖，只能降低频率，弹窗还在就会崩）。
+    // 彻底移除弹窗：改为 bot 用普通聊天说一句引导语（聊天包绝对安全），自由聊天走 LLM；
+    // 玩家回数字/关键词的匹配逻辑（handleDialogueChoice）原样保留。引导语只念一次。
     private void showInteractiveOptions(Character player) {
+        if (player == null || player.getClient() == null) {
+            return;
+        }
+        boolean firstTime = lastHintPlayerId != player.getId();
         long now = System.currentTimeMillis();
-        if (lastHintPlayerId == player.getId() && now - lastHintAtMs < HINT_DEBOUNCE_MS) {
-            return; // 防抖：同一玩家短时间内别再堆 hint 包
+        if (!firstTime && now - lastHintAtMs < HINT_DEBOUNCE_MS) {
+            return; // 防抖：同一玩家短时间内别再重复念引导语
         }
         lastHintPlayerId = player.getId();
         lastHintAtMs = now;
-        List<String> options = List.of(INTERACTIVE_OPTIONS);
-        displayPlayerChatCommands(player, options);
+        if (firstTime) {
+            BotTiming.afterRandom(300, 700, () -> BotSpeak(getChr(), "想聊点什么？直接说话就行，组队喊我或者告别也都行！"));
+        }
     }
 
     // --- Timeout ---
