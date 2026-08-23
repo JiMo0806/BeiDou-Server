@@ -8,6 +8,7 @@ import soloMapling.ArtificialPlayer.BotDialogueHandler;
 import soloMapling.ArtificialPlayer.BotOptionMenu;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotTypeManager;
+import soloMapling.ArtificialPlayer.BotGrindSystem.GrindBrain;
 import soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyCommands;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyQueue;
@@ -21,11 +22,18 @@ import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpe
 import static soloMapling.ArtificialPlayer.BotHelpers.isBot;
 import static soloMapling.BotLogger.log;
 
-// A recruited companion: follows one real player everywhere. The heavy lifting is the GC follow
+// A recruited companion: stays with one real player. The heavy lifting is the GC follow
 // engine (50ms same-map tailing + 400ms cross-map session that travels portal chains and redirects
 // mid-trip - see GCFollow); this FSM is only the supervisor: it tracks the leader BY ID so a relog
 // re-attaches (a session holds a hard Character ref and dies with it), re-arms the session whenever
 // it's down, watches party membership, and converts itself away when the ride ends.
+//
+// In the wild the follower does NOT tail the leader: once it's on the leader's mob map it enters
+// FREELANCE - the same GrindBrain a TrainingBot uses owns its movement and combat (spot claims,
+// mobbing with AoE skills, loot, rope recovery) at the shared 250ms combat cadence, so party bots
+// spread out and each mind their own hunt. It regroups instantly when the leader changes map, the
+// party dissolves, or the grind wedges; "Come to me!" (rally) holds tight following for ~2 min.
+// Towns keep the classic tight follow.
 //
 // Cadence: pinned fast (~750ms) and governor-exempt - a follower is foreground content whether or
 // not its current map is observed (it may be catching up through empty maps). The map it shares
@@ -34,24 +42,41 @@ import static soloMapling.BotLogger.log;
 // Lifecycle in: SocialBot recruit (party join -> convert), TrainingBot "Follow me!", !bot followbot.
 // Lifecycle out: "Train here with me!" -> TrainingBot (station-here handoff); leader gone past the
 // grace / party dissolved -> TrainingBot on a mob map, SocialBot in a town.
-public class FollowerBot extends BotSM {
+public class FollowerBot extends BotSM implements TrainingBot.CombatTickable {
 
     private static final long FOLLOW_TICK_MS = 750;
     private static final long LEADER_LOST_GRACE_MS = 90_000;
+    // A rally ("come to me / 集合") holds tight following this long before the bots disperse to
+    // freelance again (only meaningful on a mob map - in a town they follow anyway).
+    private static final long RALLY_HOLD_MS = 120_000;
+    // Self-heal: a freelancer that lands nothing for this long (wedged / boxed in) gives up its
+    // spot and regroups on the leader instead of standing frozen forever.
+    private static final long FREELANCE_STUCK_MS = 90_000;
+    // Min gap between "dispersing to hunt" one-liners so map-hopping leaders don't make it chatty.
+    private static final long FREELANCE_SAY_GAP_MS = 60_000;
 
-    private enum FollowPhase { INIT, FOLLOW, LEADER_LOST }
+    private enum FollowPhase { INIT, FOLLOW, FREELANCE, LEADER_LOST }
 
-    // Written on the macro tick, read from menu callbacks - keep volatile.
+    // Written on the macro tick, read from menu callbacks / the combat ticker - keep volatile.
     private volatile FollowPhase followPhase = FollowPhase.INIT;
     private volatile int leaderId = -1;
     private volatile long leaderLostSinceMs = 0;
     private volatile boolean wasPartied = false;
     private volatile boolean pausedForTrade = false;
+    private volatile long rallyUntilMs = 0;
+    private volatile long freelanceLastSayMs = 0;
 
-    // NOTE: no "here" keyword - "there" contains "here", so a casual "hi there" would trigger it.
+    // The per-bot grind engine (same one TrainingBot uses): owns spot claims, target stickiness,
+    // engage cadence, loot, rope recovery. Driven at combat cadence via TrainingBot's shared ticker.
+    private final GrindBrain grind = new GrindBrain(msg -> { });
+
+    // NOTE: no "here" keyword anywhere - "there" contains "here", so a casual "hi there" would trigger
+    // it (and "train here with me" would hijack the rally option if rally matched "here").
     private final BotOptionMenu menu = new BotOptionMenu(this,
-            List.of("Train here with me!", "Nevermind"),
-            List.of(List.of("train", "grind", "station"), List.of("nevermind", "bye", "nah", "nope")),
+            List.of("Come to me!", "Train here with me!", "Nevermind"),
+            List.of(List.of("come", "gather", "rally", "regroup", "集合", "过来", "召回"),
+                    List.of("train", "grind", "station"),
+                    List.of("nevermind", "bye", "nah", "nope")),
             this::onMenuSelect);
 
     public FollowerBot(Character character) {
@@ -87,7 +112,13 @@ public class FollowerBot extends BotSM {
             return;
         }
         if (getState() == BotState.TRADING) {
-            // Trades are sacred: halt the follow session so the bot doesn't walk out of the trade.
+            // Trades are sacred: halt the follow session (and any freelance grind) so the bot
+            // doesn't walk out of the trade. After the trade the normal FOLLOW logic re-arms and,
+            // on a mob map, disperses to freelance again.
+            if (followPhase == FollowPhase.FREELANCE) {
+                exitFreelance();
+                followPhase = FollowPhase.FOLLOW;
+            }
             if (!pausedForTrade) {
                 pausedForTrade = true;
                 GCMovement.stop(chr);
@@ -99,6 +130,7 @@ public class FollowerBot extends BotSM {
         switch (followPhase) {
             case INIT -> doInit();
             case FOLLOW -> doFollow();
+            case FREELANCE -> doFreelance();
             case LEADER_LOST -> doLeaderLost();
         }
 
@@ -173,13 +205,92 @@ public class FollowerBot extends BotSM {
             // the freshly resolved leader Character makes the new session current).
             GCMovement.follow(chr, leader);
         }
-        // Fight alongside the leader: only while sharing the leader's map, so a cross-map catch-up
-        // run isn't stalled by mobs along the way. BotAttackDriver only sends attack packets (it
-        // never moves the bot), so it can't fight the follow engine for the movement lock; its own
-        // per-bot cooldown table gates the rate.
-        if (chr.getMapId() == leader.getMapId()) {
-            BotAttackDriver.botAttack(chr);
+        // Wild maps: each follower minds its own business. Once the bot has caught up onto the
+        // leader's mob map (and no rally hold is active), it stops tailing and disperses to grind
+        // on its own via its GrindBrain - the leader only regroups them with "Come to me!". In
+        // towns (no mobs) or while rallying it keeps the classic tight follow.
+        if (chr.getMapId() == leader.getMapId()
+                && now() >= rallyUntilMs
+                && MapMobIndex.level(chr.getMapId()) >= 0) {
+            enterFreelance(leader);
         }
+    }
+
+    // Dispersed hunting on the leader's map: the GrindBrain owns movement + combat (driven at
+    // combat cadence by TrainingBot's shared ticker via onSharedCombatTick); this macro tick only
+    // supervises - regrouping the bot the moment the leader moves on, the party dissolves, or the
+    // grind engine looks wedged.
+    private void doFreelance() {
+        Character chr = getChr();
+        Character leader = resolveLeader();
+        if (leader == null || leader.getMap() == null) {
+            exitFreelance();
+            leaderLostSinceMs = now();
+            followPhase = FollowPhase.LEADER_LOST;
+            sayNode("LeaderLost", null);
+            return;
+        }
+        if (wasPartied && chr.getParty() == null) {
+            // Kicked / disband: the ride is over.
+            exitFreelance();
+            sayNode("PartyFarewell", leader);
+            fallbackConvert();
+            return;
+        }
+        // The leader moved on (or is in a town now): drop the spot and catch up - the follow
+        // session re-arms itself on the next doFollow tick.
+        if (chr.getMapId() != leader.getMapId()) {
+            exitFreelance();
+            followPhase = FollowPhase.FOLLOW;
+            return;
+        }
+        // Self-heal: wedged / dead map -> stop hunting alone and regroup on the leader.
+        if (grind.msSinceProgress() > FREELANCE_STUCK_MS
+                && GCMovement.isMapObserved(chr.getMapId())) {
+            exitFreelance();
+            followPhase = FollowPhase.FOLLOW;
+        }
+    }
+
+    // FOLLOW -> FREELANCE handoff: end the tailing session, hand movement to the grind engine,
+    // and register into the shared combat ticker.
+    private void enterFreelance(Character leader) {
+        Character chr = getChr();
+        GCMovement.stop(chr); // the grind engine owns movement from here
+        GCMovement.setGrinding(chr, true); // grind nav guards (no idle-hang on ropes)
+        grind.start(chr); // fresh heartbeat, pick a spot, disperse into the field
+        TrainingBot.registerCombatTick(this);
+        followPhase = FollowPhase.FREELANCE;
+        if (now() - freelanceLastSayMs >= FREELANCE_SAY_GAP_MS) {
+            freelanceLastSayMs = now();
+            sayNode("FreelanceStart", leader);
+        }
+    }
+
+    // FREELANCE -> anything else: unregister from the combat ticker and release the spot claim +
+    // combat state. Safe to call when not freelancing (unregister/release are no-ops then).
+    private void exitFreelance() {
+        TrainingBot.unregisterCombatTick(this);
+        Character chr = getChr();
+        grind.release(chr);
+        if (chr != null) {
+            GCMovement.setGrinding(chr, false); // back to normal nav for follow/travel
+            GCMovement.stop(chr); // clear the roam target
+        }
+    }
+
+    // The shared combat ticker's ~250ms hook: run the grind engine only while actually
+    // freelancing, running, and not mid-trade (the macro tick handles phase exits).
+    @Override
+    public void onSharedCombatTick() {
+        if (followPhase != FollowPhase.FREELANCE || getState() == BotState.TRADING) {
+            return;
+        }
+        Character chr = getChr();
+        if (chr == null || !getRunning()) {
+            return;
+        }
+        grind.tick(chr);
     }
 
     private void doLeaderLost() {
@@ -208,7 +319,28 @@ public class FollowerBot extends BotSM {
 
     private void onMenuSelect(int idx, Character player) {
         Character chr = getChr();
-        if (idx == 0) { // Train here with me!
+        if (idx == 0) { // Come to me! (rally: regroup on the leader for a while)
+            if (player.getId() != leaderId) {
+                sayNode("LoyalToLeader", player);
+                menu.close(player);
+                return;
+            }
+            rallyUntilMs = now() + RALLY_HOLD_MS;
+            if (followPhase == FollowPhase.FREELANCE) {
+                exitFreelance();
+                followPhase = FollowPhase.FOLLOW;
+            }
+            if (!GCMovement.isFollowing(chr)) {
+                Character leader = resolveLeader();
+                if (leader != null && leader.getMap() != null) {
+                    GCMovement.follow(chr, leader);
+                }
+            }
+            sayNode("Rally", player);
+            menu.close(player);
+            return;
+        }
+        if (idx == 1) { // Train here with me!
             if (player.getId() != leaderId) {
                 sayNode("LoyalToLeader", player);
                 menu.close(player);
@@ -221,6 +353,9 @@ public class FollowerBot extends BotSM {
             }
             sayNode("StationHere", player);
             menu.close(player);
+            if (followPhase == FollowPhase.FREELANCE) {
+                exitFreelance();
+            }
             BotRecruitManager.markStationHere(chr.getId());
             GCMovement.stop(chr);
             BotTypeManager.convertBotType(chr, BotTypeManager.BotType.TRAINING_BOT);
@@ -296,6 +431,7 @@ public class FollowerBot extends BotSM {
 
     @Override
     public synchronized void stopScheduledTask() {
+        exitFreelance(); // drop the shared-ticker registration + spot claim (no-ops when not freelancing)
         Character chr = getChr();
         if (chr != null) {
             BotRecruitManager.clearArmed(chr.getId()); // pending station/leader handoffs survive on purpose

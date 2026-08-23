@@ -73,7 +73,7 @@ import static soloMapling.BotLogger.log;
 // Map discovery is deterministic from WZ: the bot finds level-appropriate field maps near its spawn
 // town by BFS over the portal graph (TrainingMapFinder + MapMobIndex), reading mob levels straight from
 // Map.wz/Mob.wz. No hand-authored region table; town-locality emerges from hop distance.
-public class TrainingBot extends BotSM {
+public class TrainingBot extends BotSM implements TrainingBot.CombatTickable {
 
     // ── Tunables (decoration, not balance — rough is fine) ───────────────────
     // REAL-tier swing/decision cadence (shared ticker). Only OBSERVED grinders do real work here — combatTick
@@ -165,9 +165,26 @@ public class TrainingBot extends BotSM {
     private static final long BUFF_MIN_MS = 90_000;
     private static final long BUFF_MAX_MS = 120_000;
 
-    // ── Shared combat ticker (one task for ALL training bots) ────────────────
-    private static final Set<TrainingBot> ACTIVE_GRINDERS = ConcurrentHashMap.newKeySet();
+    // ── Shared combat ticker (one task for ALL grinding bots) ────────────────
+    // Any bot that needs ~250ms combat cadence (TrainingBot grinders, FollowerBot freelancers)
+    // registers itself here; one shared task drives them all — no thread per bot.
+    public interface CombatTickable {
+        void onSharedCombatTick();
+    }
+
+    private static final Set<CombatTickable> ACTIVE_GRINDERS = ConcurrentHashMap.newKeySet();
     private static volatile boolean combatTickerStarted = false;
+
+    // Wire a bot into the shared combat ticker (idempotent; also lazily boots the ticker).
+    public static void registerCombatTick(CombatTickable bot) {
+        ensureCombatTicker();
+        ACTIVE_GRINDERS.add(bot);
+    }
+
+    // Drop a bot from the shared combat ticker (stop / phase change / conversion).
+    public static void unregisterCombatTick(CombatTickable bot) {
+        ACTIVE_GRINDERS.remove(bot);
+    }
 
     private static synchronized void ensureCombatTicker() {
         if (combatTickerStarted) {
@@ -181,9 +198,9 @@ public class TrainingBot extends BotSM {
     // Swing every grinding bot whose map a real player can see. One exception per bot never stops the ticker.
     private static void combatTickAll() {
         long sweepStart = System.currentTimeMillis();
-        for (TrainingBot bot : ACTIVE_GRINDERS) {
+        for (CombatTickable bot : ACTIVE_GRINDERS) {
             try {
-                bot.combatTick();
+                bot.onSharedCombatTick();
             } catch (Exception e) {
                 // a single bot's combat error must never kill the shared ticker
             }
@@ -195,6 +212,12 @@ public class TrainingBot extends BotSM {
     // How many bots the shared combat ticker currently visits (for !env perf).
     public static int activeGrinderCount() {
         return ACTIVE_GRINDERS.size();
+    }
+
+    // This bot's hook into the shared combat ticker (see registerCombatTick).
+    @Override
+    public void onSharedCombatTick() {
+        combatTick();
     }
 
     // Fable Phase 3: an unobserved GRINDING bot is the deep-background case - abstract

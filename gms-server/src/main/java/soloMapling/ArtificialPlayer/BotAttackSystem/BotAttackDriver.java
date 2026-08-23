@@ -28,8 +28,8 @@ import java.util.concurrent.ThreadLocalRandom;
 /*
  * Targeting and route-dispatch model adapted from GreenCatMS bot combat. Credit: NutNNut.
  * Bot attack driver. Resolves the bot's attacks from its class + weapon (BotAttackConfig),
- * then each tick picks the AoE skill when 2+ mobs are in reach else the
- * single-target one, faces the nearest, rolls fixed per-line damage, and strikes via the
+ * then each tick picks the ultimate when a real pack (2+ mobs) is in reach and it's off
+ * cooldown, the sustained AoE whenever a mob is in reach, else the single-target skill, faces the nearest, rolls fixed per-line damage, and strikes via the
  * profile's route (melee / ranged / magic). Re-attacks are throttled per bot via
  * nextAttackByBot; clearBot() releases a despawned bot's timer. botAttack() is
  * cooldown-gated; forceAttack() ignores it for the !bot attack GM test.
@@ -83,8 +83,9 @@ public final class BotAttackDriver {
     public enum Choice { AUTO, SINGLE, AOE, ULTIMATE }
 
     /*
-     * Cooldown-gated swing at the in-reach mobs (AUTO: AoE when 2+ mobs are in reach, else
-     * single). Cheap and safe to call every tick; most ticks do nothing. The FSM entry point.
+     * Cooldown-gated swing at the in-reach mobs (AUTO: ultimate on a 2+ pack when ready, sustained
+     * AoE on any mob in reach, else single-target). Cheap and safe to call every tick; most ticks
+     * do nothing. The FSM entry point.
      */
     public static AttackResult botAttack(Character bot) {
         return attack(bot, false, Choice.AUTO);
@@ -202,14 +203,15 @@ public final class BotAttackDriver {
             healUndead = true;
         } else {
             // The AoE we'd throw at a pack: the full-map ultimate when it's off its long separate
-            // cooldown, otherwise the sustained mob attack (Crusher / Shining Ray / Ice Strike /
-            // Explosion). While the ultimate cools, the bot keeps mobbing with the sustained AoE
-            // instead of dropping to single-target. Only escalate to an AoE when 2+ mobs are in reach.
+            // cooldown AND there's a real pack (2+ mobs) to nuke, otherwise the sustained mob
+            // attack (Crusher / Shining Ray / Ice Strike / Explosion). A class with a sustained
+            // AoE mobs with it even on a lone target - that's what real players do - so the
+            // single-target skill only shows on classes without one (1st-job mages/bowmen/thieves).
             boolean ultReady = ultimate != null && now >= nextUltimateByBot.getOrDefault(bot.getId(), 0L);
-            BotAttackProfile packAttack = ultReady ? ultimate : aoe;
-            boolean useAoe = packAttack != null && mobsInReach(bot, packAttack, weapon, facingLeft).size() >= 2;
-            if (useAoe) {
-                profile = packAttack;
+            if (ultReady && mobsInReach(bot, ultimate, weapon, facingLeft).size() >= 2) {
+                profile = ultimate;
+            } else if (aoe != null && !mobsInReach(bot, aoe, weapon, facingLeft).isEmpty()) {
+                profile = aoe;
             } else {
                 profile = single != null ? single : (aoe != null ? aoe : ultimate);
             }

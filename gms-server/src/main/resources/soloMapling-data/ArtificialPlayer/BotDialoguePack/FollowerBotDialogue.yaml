@@ -22,6 +22,32 @@ FollowerBot:
       - 0
     wait: 1
 
+  FreelanceStart:
+    text:
+      - "自由人模式启动，我自己先练着"
+      - {line: "收到 {PLAYER_NAME}，我先自己刷一会儿", emote: 2}
+      - "行，那我就单飞啦，有队了再喊我"
+      - {line: "好嘞，我先就近清清怪 ^^", emote: 3}
+      - "自由行动开始，怪物们颤抖吧"
+      - {line: "明白，我自己也能玩得转 {PLAYER_NAME}", emote: 2}
+    emote:
+      - 2
+      - 3
+    wait: 1
+
+  Rally:
+    text:
+      - {line: "来啦来啦！这就到 {PLAYER_NAME} 那里集合", emote: 2}
+      - "收到集合信号，马上赶过去"
+      - {line: "等我！腿短但我心急 ^^", emote: 3}
+      - "别开打啊，我马上就到"
+      - {line: "正在赶来，怪留点给我 {PLAYER_NAME}！", emote: 2}
+      - "集合点收到，出发"
+    emote:
+      - 2
+      - 3
+    wait: 1
+
   StationHere:
     text:
       - {line: "这张图？看着不错 {PLAYER_NAME}，我就待这儿了", emote: 2}
