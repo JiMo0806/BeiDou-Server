@@ -467,6 +467,13 @@ public abstract class BotSM implements EventSubscriber {
         botTradeSM.update(); // Continue trading logic
     }
 
+    // 玩家在交易窗口里对 bot 说话：路由给交易状态机处理（重置超时 + 议价/闲聊回应）
+    public void onTradeChatFromPlayer(org.gms.client.Character player, String msg) {
+        if (botTradeSM != null) {
+            botTradeSM.onPlayerChat(player, msg);
+        }
+    }
+
     protected void discardTradeSM() {
         botTradeSM = null;
     }

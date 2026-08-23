@@ -52,6 +52,28 @@ public class BotTradeCommands {
 //        todo
     }
 
+    // 玩家在交易窗口发言的入口（PlayerInteractionHandler 调用）：
+    // 如果交易对手是 bot，把消息路由给 bot 的交易状态机——重置超时、议价或闲聊回应
+    public static void onPlayerTradeChat(Character player, String message) {
+        try {
+            Trade trade = player.getTrade();
+            if (trade == null || trade.getPartner() == null) {
+                return;
+            }
+            Character partner = trade.getPartner().getChr();
+            if (partner == null || !soloMapling.ArtificialPlayer.BotHelpers.isBot(partner)) {
+                return;
+            }
+            soloMapling.ArtificialPlayer.BotSM botSM =
+                    soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getBotById(partner.getId());
+            if (botSM != null) {
+                botSM.onTradeChatFromPlayer(player, message);
+            }
+        } catch (Exception e) {
+            debugprint("onPlayerTradeChat error: " + e.getMessage());
+        }
+    }
+
     public static void writeTradeChat(Character fakechar, String message) {
         if (isValidTrade(fakechar)) {
             fakechar.getTrade().chat(message);

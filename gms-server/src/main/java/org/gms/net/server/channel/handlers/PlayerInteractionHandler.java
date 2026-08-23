@@ -351,6 +351,8 @@ public final class PlayerInteractionHandler extends AbstractPacketHandler {
                 HiredMerchant merchant = chr.getHiredMerchant();
                 if (chr.getTrade() != null) {
                     chr.getTrade().chat(chatMsg);
+                    // bot 的 sendPacket 是 no-op 收不到显示包，交易对手是 bot 时显式路由给它
+                    soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeCommands.onPlayerTradeChat(chr, chatMsg);
                 } else if (chr.getPlayerShop() != null) { //mini game
                     PlayerShop shop = chr.getPlayerShop();
                     if (shop != null) {

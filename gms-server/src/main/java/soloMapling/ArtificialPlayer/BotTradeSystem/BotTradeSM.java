@@ -66,7 +66,9 @@ public class BotTradeSM {
 
     private long startTime;
     private long endTime;
-    private long timeoutSeconds = 60;
+    // SM NOTE: 60s was too tight for players who want to chat/haggle inside the trade window.
+    // 180s, and the timer resets whenever the player chats (see onPlayerChat).
+    private long timeoutSeconds = 180;
 
     public BotTradeSM(BotSM parent) {
         this(parent, TradeMode.SELLING);
@@ -373,6 +375,7 @@ public class BotTradeSM {
         if (offered <= 0 || floorPrice <= 0 || haggles >= MAX_HAGGLES) {
             return;
         }
+        setTradeStartTime(); // 玩家在动钱，还活跃，别让倒计时掐了交易
         long now = System.currentTimeMillis();
         if (now - lastCounterMs < COUNTER_INTERVAL_MS) {
             return; // 别刷屏
@@ -478,6 +481,121 @@ public class BotTradeSM {
 
     public void onTradeSuccess() {
         lastTradeResult = Trade.TradeResult.SUCCESSFUL;
+    }
+
+    // ── 交易窗口聊天：玩家说话 bot 要能接住 ─────────────────────────────────
+    // 玩家的交易聊天只走显示包（Trade.chat），bot 的 sendPacket 是 no-op，
+    // 所以必须在 PlayerInteractionHandler 里显式路由进来（BotTradeCommands.onPlayerTradeChat）。
+    // 这里做三件事：重置超时（玩家还活跃）、带价格数字就走议价、否则 LLM 闲聊（回落本地台词）。
+    public void onPlayerChat(Character player, String msg) {
+        if (msg == null || msg.isBlank()) {
+            return;
+        }
+        setTradeStartTime(); // 玩家还在交流，别让倒计时把交易掐了
+
+        TradeState st = getTradeState();
+        if (st != TradeState.WAITING_RESPONSE && st != TradeState.RESPONDING && st != TradeState.CONFIRMED_LOCKED) {
+            return; // 只在等待玩家出价/闲聊阶段搭话
+        }
+
+        Integer price = parsePrice(msg);
+        if (price != null && isSelling() && floorPrice > 0 && st != TradeState.CONFIRMED_LOCKED) {
+            negotiateFromChat(player, price);
+            return;
+        }
+        chatSmallTalk(player, msg);
+    }
+
+    // 从聊天里抠出价格：支持"50万""500000""50 w"等写法
+    private Integer parsePrice(String msg) {
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("(\\d+)(?:\\.\\d+)?\\s*(万|w|W)?").matcher(msg);
+        long best = -1;
+        while (m.find()) {
+            long v = Long.parseLong(m.group(1));
+            if (m.group(2) != null) {
+                v *= 10000;
+            }
+            best = Math.max(best, v);
+        }
+        if (best <= 0 || best > 2100000000L) {
+            return null; // 没有像样的数字，或超出金币上限，当闲聊处理
+        }
+        return (int) best;
+    }
+
+    // 玩家口头报价：达到开价直接催成交；过底价各让一步；低于底价礼貌拒绝
+    private void negotiateFromChat(Character player, int price) {
+        int asking = getParent().getTradeWants().getMesoWanted();
+        if (price >= asking) {
+            BotTiming.afterRandom(600, 1400, () ->
+                    BotTradeCommands.writeTradeChat(getChr(), "这个价可以！把钱放上来点确认就行"));
+            return;
+        }
+        if (price < floorPrice) {
+            int hint = floorPrice;
+            BotTiming.afterRandom(600, 1400, () ->
+                    BotTradeCommands.writeTradeChat(getChr(),
+                            "太低啦，" + formatPriceToShorthand(hint) + " 以下我真的没法卖"));
+            return;
+        }
+        // 底价~开价之间：还有还价次数就各让一步，否则咬死底价
+        int target;
+        if (haggles < MAX_HAGGLES) {
+            target = Math.max(floorPrice, price + (asking - price) * 2 / 3);
+            haggles++;
+        } else {
+            target = Math.max(floorPrice, asking - (asking - floorPrice) / 4);
+        }
+        if (target >= asking) {
+            target = Math.max(floorPrice, asking - 1);
+        }
+        int finalTarget = Math.min(target, asking - 1);
+        getParent().getTradeWants().setMesoWanted(finalTarget);
+        String line = haggles >= MAX_HAGGLES
+                ? "最多让到 " + formatPriceToShorthand(finalTarget) + " 了，再低真不卖！"
+                : "这样吧，" + formatPriceToShorthand(finalTarget) + " 怎么样？诚实价！";
+        BotTiming.afterRandom(700, 1600, () -> BotTradeCommands.writeTradeChat(getChr(), line));
+        debugprint("negotiateFromChat: " + getChr().getName() + " oral offer " + price
+                + " -> counter " + finalTarget + " (floor " + floorPrice + ")");
+    }
+
+    private static final String[] TRADE_SMALL_TALK = {
+            "哈哈，你眼光不错，这可是好货",
+            "价格好商量，但别砍太狠哈",
+            "嗯嗯，你考虑一下，不着急",
+            "这东西我收来也不容易的",
+            "你要是诚心要，咱们慢慢谈",
+            "嘿嘿，做买卖讲究个你情我愿",
+    };
+
+    // 交易窗口闲聊：走 LLM（带交易语境），失败或未启用回落本地台词
+    private void chatSmallTalk(Character player, String msg) {
+        Character bot = getChr();
+        if (soloMapling.ArtificialPlayer.BotMessagingSystem.BotLLMService.ready(bot.getId())) {
+            String mapName = bot.getMap().getMapName();
+            String userMsg = "[交易窗口内对话，bot 正在卖货开价 " + formatPriceToShorthand(getParent().getTradeWants().getMesoWanted())
+                    + " 金币] " + msg;
+            Thread.ofVirtual().name("bot-tradechat-" + bot.getId()).start(() -> {
+                String reply = null;
+                try {
+                    Thread.sleep(500 + random.nextInt(800)); // 别秒回，像人在打字
+                    reply = soloMapling.ArtificialPlayer.BotMessagingSystem.BotLLMService.chat(
+                            bot.getId(), bot, player.getName(), mapName, userMsg);
+                } catch (Exception e) {
+                    debugprint("tradechat llm error: " + e.getMessage());
+                }
+                if (reply != null && !reply.isBlank()) {
+                    BotTradeCommands.writeTradeChat(bot, reply);
+                } else {
+                    String line = TRADE_SMALL_TALK[random.nextInt(TRADE_SMALL_TALK.length)];
+                    BotTradeCommands.writeTradeChat(bot, line);
+                }
+            });
+        } else {
+            String line = TRADE_SMALL_TALK[random.nextInt(TRADE_SMALL_TALK.length)];
+            BotTiming.afterRandom(600, 1500, () -> BotTradeCommands.writeTradeChat(getChr(), line));
+        }
     }
 
     public void startTradeCallback() {
