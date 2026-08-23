@@ -78,11 +78,17 @@ public class SocialCommands {
     }
 
     public static void BotEmote(Character fakechar) {
-        int emote = generateRandomNumber(1, 22);
+        int emote = generateRandomNumber(1, 7);
         BotEmote(fakechar, emote);
     }
 
     public static void BotEmote(Character fakechar, int emote) {
+        // v83 clients only support facial expressions 0-7 (F1-F7). Dialogue yaml data carries
+        // later-version emote ids (11/12/14/17...); sending those crashes the client to a black
+        // screen. Drop anything out of range instead of broadcasting it.
+        if (emote < 0 || emote > 7) {
+            return;
+        }
         if (fakechar != null) {
             fakechar.getMap().broadcastMessage(fakechar, PacketCreator.facialExpression(fakechar, emote), true);
             fakechar.getMap().broadcastMessage(fakechar, PacketCreator.facialExpression(fakechar, emote), fakechar.getPosition());

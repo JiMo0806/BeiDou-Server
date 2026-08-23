@@ -1,10 +1,9 @@
 package soloMapling.ArtificialPlayer.BotPartySystem;
 
 import org.gms.client.Character;
+import soloMapling.BotLogger;
 
 import java.util.concurrent.ConcurrentHashMap;
-
-import static soloMapling.DebugUtilities.debugprint;
 
 public class BotPartyQueue {
 
@@ -44,7 +43,8 @@ public class BotPartyQueue {
     // a bot answering with the stale entry's old partyId hit NOT_FOUND at the coordinator -
     // leaving the player's live invite wedged ("taking care of another invitation") for 3 min.
     public void addPartyInvite(Character fakechar, Character inviter, int partyId) {
-        debugprint("addPartyInvite: bot=" + fakechar.getName() + ", inviter=" + inviter.getName() + ", partyId=" + partyId);
+        BotLogger.log("[PartyQueue] addPartyInvite: bot=" + fakechar.getName() + "(" + fakechar.getId()
+                + "), inviter=" + inviter.getName() + "(" + inviter.getId() + "), partyId=" + partyId);
         queues.put(fakechar, new PartyInviteEntry(inviter, partyId));
         // Wake the bot's macro brain now so pollInvites drains this on the next ~immediate tick,
         // rather than waiting out its slow scheduled cadence while the armed window ticks away.

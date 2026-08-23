@@ -1,6 +1,7 @@
 package soloMapling.ArtificialPlayer.BotPartySystem;
 
 import org.gms.client.Character;
+import soloMapling.BotLogger;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotTypeManager;
@@ -131,9 +132,12 @@ public class BotRecruitManager {
             return;
         }
         if (isArmed(botChr.getId())) {
+            BotLogger.log("[ColdInvite] " + botChr.getName() + " armed - own tick will answer " + inviter.getName());
             return; // the armed flow answers this invite on the bot's own tick
         }
         int botId = botChr.getId();
+        BotLogger.log("[ColdInvite] " + botChr.getName() + "(" + botId + ") cold-invited by "
+                + inviter.getName() + " - answering in ~2s");
         Thread.ofVirtual().name("bot-cold-invite-" + botId).start(() -> {
             try {
                 Thread.sleep(1200 + random.nextInt(1600)); // think about it like a human would
@@ -143,7 +147,7 @@ public class BotRecruitManager {
             try {
                 answerColdInvite(botChr, inviter);
             } catch (Exception e) {
-                debugprint("handleColdInvite: failed for " + botChr.getName() + ": " + e);
+                BotLogger.log("[ColdInvite] FAILED for " + botChr.getName() + ": " + e);
             }
         });
     }
@@ -151,19 +155,24 @@ public class BotRecruitManager {
     private static void answerColdInvite(Character botChr, Character inviter) {
         BotPartyQueue.PartyInviteEntry entry = BotPartyQueue.getInstance().getPartyInvite(botChr);
         if (entry == null) {
+            BotLogger.log("[ColdInvite] " + botChr.getName() + " entry gone (answered elsewhere)");
             return; // already answered on the bot's own tick (armed flow / OPQ / loyal follower)
         }
         // Last-wins queue: only answer if OUR invite is still the live one (a later invite from
         // someone else replaced it - that player's own cold-invite thread owns the answer now).
         Character queued = entry.getInviter();
         if (queued == null || queued.getId() != inviter.getId()) {
+            BotLogger.log("[ColdInvite] " + botChr.getName() + " superseded by another inviter - skip");
             return;
         }
         BotSM bot = CharacterStorage.getAllBots().get(botChr.getId());
         if (bot == null) {
+            BotLogger.log("[ColdInvite] " + botChr.getName() + "(" + botChr.getId()
+                    + ") NOT registered in CharacterStorage - invite left unanswered!");
             return;
         }
         if (botChr.getParty() != null || bot.getState() == BotSM.BotState.TRADING) {
+            BotLogger.log("[ColdInvite] " + botChr.getName() + " busy (party/trade) - rejecting");
             BotPartyCommands.botRejectPartyInvite(botChr);
             return;
         }
@@ -173,18 +182,21 @@ public class BotRecruitManager {
                 && botChr.getLevel() >= 10
                 && random.nextDouble() < COLD_ACCEPT_CHANCE;
         if (!wantsJoin) {
+            BotLogger.log("[ColdInvite] " + botChr.getName() + " declined " + inviter.getName()
+                    + (companion ? " (rolled no)" : " (role-locked type " + bot.getBotType() + ")"));
             BotPartyCommands.botRejectPartyInvite(botChr);
             DECLINED_UNTIL.put(pairKey(botChr.getId(), inviter.getId()),
                     System.currentTimeMillis() + DECLINE_COOLDOWN_MS); // re-ask later for a fresh roll
-            debugprint("answerColdInvite: " + botChr.getName() + " declined " + inviter.getName()
-                    + (companion ? " (rolled no)" : " (role-locked type " + bot.getBotType() + ")"));
             return;
         }
         if (BotPartyCommands.botAcceptPartyInvite(botChr)) {
             setPendingLeader(botChr.getId(), inviter.getId());
             BotTypeManager.convertBotType(botChr, BotTypeManager.BotType.FOLLOWER_BOT);
-            debugprint("answerColdInvite: " + botChr.getName() + " joined " + inviter.getName()
+            BotLogger.log("[ColdInvite] " + botChr.getName() + " JOINED " + inviter.getName()
                     + " and became a follower");
+        } else {
+            BotLogger.log("[ColdInvite] " + botChr.getName() + " accept FAILED (invite expired/party full) for "
+                    + inviter.getName());
         }
     }
 

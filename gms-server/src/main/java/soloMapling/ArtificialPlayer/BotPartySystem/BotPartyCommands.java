@@ -11,6 +11,7 @@ import org.gms.net.server.world.PartyOperation;
 import org.gms.net.server.world.World;
 import org.gms.server.maps.MapleMap;
 import org.gms.util.PacketCreator;
+import soloMapling.BotLogger;
 
 import static soloMapling.DebugUtilities.debugprint;
 
@@ -81,10 +82,10 @@ public class BotPartyCommands {
                             + " couldn't join your party (it was full or disbanded) - try inviting again."));
                 }
             }
-            debugprint("botAcceptPartyInvite: joined=" + joined + " partyId=" + partyId);
+            BotLogger.log("[PartyCmd] " + fakechar.getName() + " accept: joined=" + joined + " partyId=" + partyId);
             return joined;
         }
-        debugprint("botAcceptPartyInvite: invite expired/invalid, result=" + res.result);
+        BotLogger.log("[PartyCmd] " + fakechar.getName() + " accept: invite expired/invalid, result=" + res.result);
         return false;
     }
 
@@ -105,7 +106,8 @@ public class BotPartyCommands {
         if (inviter != null && res.result == InviteResultType.DENIED) {
             inviter.sendPacket(PacketCreator.serverNotice(5, fakechar.getName() + " has declined your party request."));
         }
-        debugprint("botRejectPartyInvite: result=" + res.result + " inviter=" + (inviter == null ? "?" : inviter.getName()));
+        BotLogger.log("[PartyCmd] " + fakechar.getName() + " reject: result=" + res.result
+                + " inviter=" + (inviter == null ? "?" : inviter.getName()));
         return true;
     }
 
