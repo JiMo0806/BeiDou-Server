@@ -16,6 +16,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * bot 聊天的大模型（LLM）接入：OpenAI 兼容的 chat/completions 接口。
@@ -51,6 +52,14 @@ public final class BotLLMService {
     private static final Map<Integer, Deque<String[]>> HISTORY = new ConcurrentHashMap<>();
     private static final Map<Integer, Long> LAST_CALL = new ConcurrentHashMap<>();
 
+    // SM NOTE: circuit breaker - when the API endpoint is down/slow every conversation stalls
+    // for the full request timeout before falling back. After consecutive failures we stop
+    // calling the API entirely for a while and go straight to local lines.
+    private static final int CIRCUIT_FAILURE_THRESHOLD = 3;
+    private static final long CIRCUIT_COOLDOWN_MS = 10 * 60 * 1000; // 10 min
+    private static final AtomicInteger CONSECUTIVE_FAILURES = new AtomicInteger(0);
+    private static volatile long CIRCUIT_OPEN_UNTIL = 0;
+
     private BotLLMService() {
     }
 
@@ -62,6 +71,9 @@ public final class BotLLMService {
     public static boolean ready(int botId) {
         if (!isEnabled()) {
             return false;
+        }
+        if (System.currentTimeMillis() < CIRCUIT_OPEN_UNTIL) {
+            return false; // 熔断中：API 持续失败，直接走本地台词，不卡超时
         }
         long now = System.currentTimeMillis();
         Long last = LAST_CALL.get(botId);
@@ -91,12 +103,27 @@ public final class BotLLMService {
         try {
             String reply = request(bot.getName(), playerName, mapName, msg, history);
             if (reply != null) {
+                CONSECUTIVE_FAILURES.set(0);
                 append(history, "assistant", reply);
+            } else {
+                onApiFailure("empty reply");
             }
             return reply;
         } catch (Exception e) {
+            onApiFailure(e.getMessage());
             System.out.println("[BotLLMService] 调用失败，回落本地台词: " + e.getMessage());
             return null;
+        }
+    }
+
+    // SM NOTE: 连续失败达到阈值后熔断——API 不可用时每句话都要白等一次请求超时，
+    // 熔断期间 ready() 直接返回 false，走本地台词，10 分钟后半开重试一次。
+    private static void onApiFailure(String reason) {
+        if (CONSECUTIVE_FAILURES.incrementAndGet() >= CIRCUIT_FAILURE_THRESHOLD) {
+            CIRCUIT_OPEN_UNTIL = System.currentTimeMillis() + CIRCUIT_COOLDOWN_MS;
+            CONSECUTIVE_FAILURES.set(0);
+            System.out.println("[BotLLMService] 连续失败，熔断 " + (CIRCUIT_COOLDOWN_MS / 60000)
+                    + " 分钟（原因: " + reason + "），期间使用本地台词");
         }
     }
 
@@ -142,11 +169,48 @@ public final class BotLLMService {
         if (content == null || content.isBlank()) {
             return null;
         }
-        content = content.trim();
+        content = sanitize(content);
+        if (content.isEmpty()) {
+            return null;
+        }
         if (content.length() > MAX_REPLY_CHARS) {
             content = content.substring(0, MAX_REPLY_CHARS);
         }
         return content;
+    }
+
+    // SM NOTE: LLM 输出是任意文本，但聊天包走 GBK 编码、老客户端渲染脆弱：
+    // 换行/回车/控制符会让聊天气泡与聊天框排版错乱甚至假死黑屏，emoji（代理对）
+    // 无法编码进 GBK。这里只保留中文/英文/常用标点与空白，其余一律剔除，
+    // 连续空白压成一个空格——宁可少几个字符，不能让客户端崩。
+    private static String sanitize(String s) {
+        if (s == null) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder(s.length());
+        boolean lastWhitespace = false;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (Character.isHighSurrogate(c) || Character.isLowSurrogate(c)) {
+                continue; // emoji/生僻字代理对，GBK 编不出，直接丢弃
+            }
+            if (c == '\n' || c == '\r' || c == '\t' || Character.getType(c) == Character.CONTROL) {
+                continue;
+            }
+            if (Character.isWhitespace(c)) {
+                if (!lastWhitespace) {
+                    sb.append(' ');
+                    lastWhitespace = true;
+                }
+                continue;
+            }
+            lastWhitespace = false;
+            if (c < 0x20 || (c >= 0x7F && c < 0xA0)) {
+                continue; // 其余控制区字符
+            }
+            sb.append(c);
+        }
+        return sb.toString().trim();
     }
 
     // 追加一条历史并裁剪到 HISTORY_LIMIT
