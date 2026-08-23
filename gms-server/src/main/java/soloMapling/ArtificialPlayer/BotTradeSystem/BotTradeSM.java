@@ -6,6 +6,7 @@ import org.gms.client.inventory.Item;
 import org.gms.server.Trade;
 import soloMapling.ArtificialPlayer.BotBlockList;
 import soloMapling.ArtificialPlayer.BotSM;
+import soloMapling.FreeMarket.FMEquip;
 import soloMapling.FreeMarket.FMItem;
 import soloMapling.server.BotTiming;
 
@@ -17,8 +18,10 @@ import static soloMapling.ArtificialPlayer.BotHelpers.convertItemIdToName;
 import static soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeCommands.getTradePartnerCharacter;
 import static soloMapling.DebugUtilities.debugprint;
 import static soloMapling.FreeMarket.ArtificialShopGenerator.generateDarkScrollsList;
+import static soloMapling.FreeMarket.ArtificialShopGenerator.generateETCList;
 import static soloMapling.FreeMarket.ArtificialShopGenerator.generateItem;
 import static soloMapling.FreeMarket.ArtificialShopGenerator.generatePotionsList;
+import static soloMapling.FreeMarket.ArtificialShopGenerator.generateRandomEquipList;
 import static soloMapling.FreeMarket.ArtificialShopGenerator.generateScrollsList;
 import static soloMapling.FreeMarket.ArtificialShopGenerator.generateThiefStarsList;
 import static soloMapling.FreeMarket.FMEconomyManager.formatPriceToShorthand;
@@ -332,6 +335,10 @@ public class BotTradeSM {
         if (getTradeMode() != TradeMode.NULL) {
             return; // 商人型 bot 的自营流程不动
         }
+        // 1/6 概率先试装备：装备直接上架 Equip 实例（保留随机属性/卷痕迹）
+        if (random.nextInt(6) == 4 && stockRandomEquip()) {
+            return;
+        }
         List<FMItem> pool = randomShopList();
         if (pool == null || pool.isEmpty()) {
             return;
@@ -341,9 +348,38 @@ public class BotTradeSM {
         if (item == null) {
             return;
         }
+        stockItemForSale(item, pick.getItemId());
+    }
+
+    private List<FMItem> randomShopList() {
+        return switch (random.nextInt(5)) {
+            case 0 -> generateScrollsList("A");
+            case 1 -> generateDarkScrollsList("A");
+            case 2 -> generateThiefStarsList("A");
+            case 3 -> generateETCList("A");       // 怪物材料：水晶/矿石/宝石原石与成品
+            default -> generatePotionsList("S");
+        };
+    }
+
+    // 交易用的装备池：随机一个职业池（含通用池），挑一件完整 Equip 上架。
+    private boolean stockRandomEquip() {
+        List<FMEquip> equips = generateRandomEquipList("A");
+        if (equips == null || equips.isEmpty()) {
+            return false;
+        }
+        FMEquip pick = equips.get(random.nextInt(equips.size()));
+        Equip equip = pick == null ? null : pick.getEquip();
+        if (equip == null) {
+            return false;
+        }
+        return stockItemForSale(equip, equip.getItemId());
+    }
+
+    // 上架+定价：开价在行情 0.9x~1.3x，底价 0.55x~0.75x，留出议价空间。
+    private boolean stockItemForSale(Item item, int itemId) {
         Integer rawValue = getItemMarketValue(item);
         if (rawValue == null || rawValue <= 0) {
-            return; // 没有行情数据的货不上架
+            return false; // 没有行情数据的货不上架
         }
         int market = rawValue;
         getParent().getTradeInventory().setItemForSaleMain(item);
@@ -354,17 +390,9 @@ public class BotTradeSM {
         int ask = Math.max(floorPrice, priceAdjustmentRules((int) (market * askFactor)));
         getParent().getTradeWants().setMesoWanted(ask);
         this.tradeMode = TradeMode.SELLING;
-        debugprint("stockRandomGoods: " + getChr().getName() + " stocks item " + pick.getItemId()
+        debugprint("stockRandomGoods: " + getChr().getName() + " stocks item " + itemId
                 + " ask=" + ask + " floor=" + floorPrice);
-    }
-
-    private List<FMItem> randomShopList() {
-        return switch (random.nextInt(4)) {
-            case 0 -> generateScrollsList("A");
-            case 1 -> generateDarkScrollsList("A");
-            case 2 -> generateThiefStarsList("A");
-            default -> generatePotionsList("S");
-        };
+        return true;
     }
 
     // 玩家放了金币但低于开价：在玩家出价和开价之间各让一步地还价，最多 MAX_HAGGLES 次、

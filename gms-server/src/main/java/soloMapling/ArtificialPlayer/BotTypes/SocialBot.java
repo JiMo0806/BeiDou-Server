@@ -54,6 +54,13 @@ public class SocialBot extends BotSM {
     private static final long TRACKER_CLEANUP_INTERVAL_MS = 120_000;
     private long lastCleanupTime = System.currentTimeMillis();
 
+    // SM NOTE: hint 包防抖——每次 LLM/脚本回复后都会发交互菜单 hint 包，玩家连发几句话
+    // 会在几秒内堆叠多个 hint+enableActions 包，老客户端处理不过来会黑屏卡死。
+    // 同一玩家 5 秒内只重发一次。
+    private static final long HINT_DEBOUNCE_MS = 5000;
+    private volatile long lastHintAtMs = 0;
+    private volatile int lastHintPlayerId = 0;
+
     private static final double RARE_LINE_CHANCE = 0.01;
     private static final double GOODBYE_SIT_CHANCE = 0.40;
     private volatile boolean wasSittingBeforeInteraction = false;
@@ -594,6 +601,12 @@ public class SocialBot extends BotSM {
     }
 
     private void showInteractiveOptions(Character player) {
+        long now = System.currentTimeMillis();
+        if (lastHintPlayerId == player.getId() && now - lastHintAtMs < HINT_DEBOUNCE_MS) {
+            return; // 防抖：同一玩家短时间内别再堆 hint 包
+        }
+        lastHintPlayerId = player.getId();
+        lastHintAtMs = now;
         List<String> options = List.of(INTERACTIVE_OPTIONS);
         displayPlayerChatCommands(player, options);
     }

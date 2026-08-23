@@ -168,6 +168,13 @@ public class ArtificialShopGenerator {
         return generateEquipListByJob(tier, ClassStyle.BEGINNER);
     }
 
+    // SM NOTE: opened for bot trades - picks a random class pool so the trade
+    // window can offer gear from any job (warrior/mage/bowman/thief/common).
+    public static List<FMEquip> generateRandomEquipList(String tier) {
+        ClassStyle[] styles = ClassStyle.values();
+        return generateEquipListByJob(tier, styles[random.nextInt(styles.length)]);
+    }
+
     private static List<FMEquip> generateThiefEquipList(String tier) {
         return generateEquipListByJob(tier, ClassStyle.THIEF);
     }
@@ -259,7 +266,9 @@ public class ArtificialShopGenerator {
         return itemList;
     }
 
-    private static List<FMItem> generateETCList(String tier) {
+    // SM NOTE: opened to public for direct bot trades - BotTradeSM stocks a random
+    // monster material when the player asks for "materials" in the trade window.
+    public static List<FMItem> generateETCList(String tier) {
         List<FMItem> itemList = new ArrayList<>() {
         };
         String useablesList = "etc.yaml";

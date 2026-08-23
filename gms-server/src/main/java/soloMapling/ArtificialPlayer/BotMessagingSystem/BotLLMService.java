@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   llm_api_url     接口地址，换模型服务商只改这里
  *   llm_model       模型名称
  *   llm_api_key     API Key
- *   llm_timeout_ms  单次请求超时（毫秒），默认 8000
+ *   llm_timeout_ms  单次请求超时（毫秒），默认 5000
  * 修改后重启服务端生效。
  *
  * 会话记忆按 bot 保存最近几轮（玩家告别/重置对话时由 SocialBot 清空），另有按 bot 的
@@ -42,6 +42,20 @@ public final class BotLLMService {
     private static final long COOLDOWN_MS = 3000;      // 同一 bot 两次调用最小间隔
     private static final int MAX_REPLY_CHARS = 60;     // 聊天气泡长度限制，超长截断
     private static final int MAX_USER_CHARS = 200;     // 玩家消息过长截断
+
+    // SM NOTE: GBK 可编码白名单，类加载时建一次（64K 布尔表，线程安全查表）。
+    // 客户端聊天包走 GBK：编不出的字符会变 '?' 甚至排版错乱，这里直接在服务端剔除。
+    private static final boolean[] GBK_OK = new boolean[0x10000];
+
+    static {
+        java.nio.charset.CharsetEncoder enc = java.nio.charset.Charset.forName("GBK").newEncoder();
+        for (int c = 0; c < 0x10000; c++) {
+            GBK_OK[c] = c >= 0x20 && enc.canEncode((char) c);
+        }
+    }
+
+    // 未启用开关时只提醒一次，避免刷屏但让服主知道为什么 bot 只说固定台词
+    private static volatile boolean WARNED_DISABLED = false;
 
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
@@ -70,6 +84,14 @@ public final class BotLLMService {
     // 冷却窗口外才允许发起下一次调用（调用前先占位，防止同一 bot 并发连发）
     public static boolean ready(int botId) {
         if (!isEnabled()) {
+            if (!WARNED_DISABLED) {
+                WARNED_DISABLED = true;
+                System.out.println("[BotLLMService] llm_enabled=false，bot 只会说本地固定台词。"
+                        + "想启用大模型对话，请在服务器工作目录 bot-config.properties 里加：");
+                System.out.println("[BotLLMService]   llm_enabled=true");
+                System.out.println("[BotLLMService]   （可选 llm_api_url / llm_model / llm_api_key / llm_timeout_ms，"
+                        + "不填用默认 NVIDIA 接口）改完重启服务端生效。");
+            }
             return false;
         }
         if (System.currentTimeMillis() < CIRCUIT_OPEN_UNTIL) {
@@ -132,7 +154,7 @@ public final class BotLLMService {
         String url = BotConfigFile.getString("llm_api_url", DEFAULT_API_URL);
         String model = BotConfigFile.getString("llm_model", DEFAULT_MODEL);
         String apiKey = BotConfigFile.getString("llm_api_key", DEFAULT_API_KEY);
-        int timeoutMs = BotConfigFile.getInt("llm_timeout_ms", 8000);
+        int timeoutMs = BotConfigFile.getInt("llm_timeout_ms", 5000);
 
         // 先把玩家这条消息记进历史（先加后发：请求失败时历史里最多多一条没被回应的话，无害）
         append(history, "user", userMessage);
@@ -159,9 +181,17 @@ public final class BotLLMService {
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(MAPPER.writeValueAsString(root)))
                 .build();
-        HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
+        long t0 = System.currentTimeMillis();
+        HttpResponse<String> resp;
+        try {
+            resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
+        } catch (java.net.http.HttpTimeoutException e) {
+            System.out.println("[BotLLMService] 请求超时（" + timeoutMs + "ms，模型: " + model + "），本次不回复");
+            throw e;
+        }
         if (resp.statusCode() != 200) {
-            System.out.println("[BotLLMService] HTTP " + resp.statusCode() + ": " + truncate(resp.body(), 200));
+            System.out.println("[BotLLMService] HTTP " + resp.statusCode() + "（耗时 "
+                    + (System.currentTimeMillis() - t0) + "ms）: " + truncate(resp.body(), 200));
             return null;
         }
         JsonNode choices = MAPPER.readTree(resp.body()).path("choices");
@@ -205,8 +235,8 @@ public final class BotLLMService {
                 continue;
             }
             lastWhitespace = false;
-            if (c < 0x20 || (c >= 0x7F && c < 0xA0)) {
-                continue; // 其余控制区字符
+            if (!GBK_OK[c]) {
+                continue; // GBK 编不出的字符（emoji、生僻符号等），服务端直接剔除
             }
             sb.append(c);
         }
