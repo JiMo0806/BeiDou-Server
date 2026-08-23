@@ -59,7 +59,9 @@ public class TownWandererBot extends BotSM {
     // mid ambient chatter with another bot.
     @Override
     public boolean isAvailableForAmbientActions() {
-        return !traveling && !BotChatter.isEngaged(getChr());
+        // TRADING: the trade window owns the bot's voice mid-trade (see SocialBot)
+        return getState() != BotState.TRADING
+                && !traveling && !BotChatter.isEngaged(getChr());
     }
 
     @Override

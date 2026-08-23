@@ -113,7 +113,10 @@ public class SocialBot extends BotSM {
         // Single source of truth for every ambient system. isInConversation covers the scripted
         // multi-bot cluster convos (ConversationManager); folding it in here stops BotChatter (which
         // gates only on availability) from grabbing a bot mid cluster-conversation -> double bubbles.
-        return !hasActiveRespondant() && !relocating && !BotChatter.isEngaged(getChr())
+        // TRADING: mid-trade the bot's voice belongs to the trade window - random ambient chatter
+        // lines over the map bubble while a player haggles read as nonsense, so mute it all.
+        return getState() != BotState.TRADING
+                && !hasActiveRespondant() && !relocating && !BotChatter.isEngaged(getChr())
                 && !ConversationManager.getInstance().isInConversation(getChr().getId());
     }
 

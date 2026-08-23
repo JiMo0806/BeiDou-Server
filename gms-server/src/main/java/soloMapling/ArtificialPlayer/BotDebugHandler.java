@@ -8,6 +8,7 @@ import java.util.Random;
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.botClearChalkboard;
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.botSetChalkboard;
 import static soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getBotById;
+import static soloMapling.BotLogger.debug;
 import static soloMapling.BotLogger.log;
 import static soloMapling.DebugUtilities.debugprint;
 import static soloMapling.server.MapleMessengerConsole.isLoggingBot;
@@ -59,8 +60,8 @@ public class BotDebugHandler {
     }
 
     public void debugLoggingFull(String BotLogMessage, String chalkboardMessage) {
-        // BotLogger BotLog.txt log file
-        log(BotLogMessage);
+        // BotLogger BotLog.txt log file (per-tick traces only when bot_debug_log=true)
+        debug(BotLogMessage);
 
         // MapleMessengerConsole Logging
         if (isLoggingBot(chr.getId())) {

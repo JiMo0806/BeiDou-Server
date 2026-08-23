@@ -535,8 +535,12 @@ public class BotTradeSM {
         setTradeStartTime(); // 玩家还在交流，别让倒计时把交易掐了
 
         TradeState st = getTradeState();
-        if (st != TradeState.WAITING_RESPONSE && st != TradeState.RESPONDING && st != TradeState.CONFIRMED_LOCKED) {
-            return; // 只在等待玩家出价/闲聊阶段搭话
+        // Any live phase of the trade window answers chat (INITIALIZE..CONFIRMED_LOCKED); only the
+        // terminal phases ignore it. The old 3-state gate went silent through AWAITING_CONFIRMATION /
+        // CONFIRMING, exactly when a player second-guesses the deal and talks most.
+        if (st == TradeState.CLEANUP || st == TradeState.COMPLETED || st == TradeState.TIMED_OUT
+                || st == TradeState.DECLINE || st == TradeState.INITIALIZE) {
+            return;
         }
 
         Integer price = parsePrice(msg);
