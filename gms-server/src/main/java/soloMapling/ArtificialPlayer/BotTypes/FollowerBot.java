@@ -54,6 +54,9 @@ public class FollowerBot extends BotSM implements CombatTickable {
     private static final long FREELANCE_STUCK_MS = 90_000;
     // Min gap between "dispersing to hunt" one-liners so map-hopping leaders don't make it chatty.
     private static final long FREELANCE_SAY_GAP_MS = 60_000;
+    // A new party member (or this bot's own fresh join) triggers a round of party buffs, but
+    // never more often than this - a joining spree must not turn into a buff spam loop.
+    private static final long JOIN_BUFF_COOLDOWN_MS = 60_000;
 
     private enum FollowPhase { INIT, FOLLOW, FREELANCE, LEADER_LOST }
 
@@ -65,6 +68,10 @@ public class FollowerBot extends BotSM implements CombatTickable {
     private volatile boolean pausedForTrade = false;
     private volatile long rallyUntilMs = 0;
     private volatile long freelanceLastSayMs = 0;
+    private volatile long lastJoinBuffMs = 0;
+    // Party roster snapshot for the new-member buff round (parties expose no push events to
+    // bots, so membership changes are diffed here on the macro tick).
+    private final Set<Integer> knownMemberIds = new HashSet<>();
 
     // The per-bot grind engine (same one TrainingBot uses): owns spot claims, target stickiness,
     // engage cadence, loot, rope recovery. Driven at combat cadence via TrainingBot's shared ticker.
@@ -137,8 +144,41 @@ public class FollowerBot extends BotSM implements CombatTickable {
         if (!getRunning()) {
             return; // a phase converted this bot away mid-tick
         }
+        pollPartyBuffRound();
         pollLeaderInvite();
         menu.poll(); // last: a selection may also convert this bot away
+    }
+
+    // New party member (or this bot's own fresh join - the whole roster is "new" on the first
+    // tick after conversion) -> throw a round of party buffs a few seconds in, so newcomers
+    // land with working buffs. Poll-based diff of the roster; cooldown guards joining sprees.
+    private void pollPartyBuffRound() {
+        Character chr = getChr();
+        Party party = chr.getParty();
+        if (party == null) {
+            knownMemberIds.clear();
+            return;
+        }
+        boolean hasNewMember = false;
+        for (PartyCharacter pc : party.getMembers()) {
+            if (pc == null) {
+                continue;
+            }
+            if (!knownMemberIds.contains(pc.getId())) {
+                hasNewMember = true;
+                break;
+            }
+        }
+        if (hasNewMember && now() - lastJoinBuffMs >= JOIN_BUFF_COOLDOWN_MS) {
+            lastJoinBuffMs = now();
+            BotBuffRequestHandler.schedulePartyBuffRound(chr, 2_000, 5_000);
+        }
+        knownMemberIds.clear();
+        for (PartyCharacter pc : party.getMembers()) {
+            if (pc != null) {
+                knownMemberIds.add(pc.getId());
+            }
+        }
     }
 
     // An unpartied follower (e.g. via !bot followbot) accepts a party invite from its OWN leader -

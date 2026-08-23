@@ -33,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.gms.server.ChatLogger;
 import org.gms.util.PacketCreator;
+import soloMapling.ArtificialPlayer.BotBuffRequestSystem.BotBuffRequestHandler;
 import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.ChatMessage;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.Dispatcher;
@@ -86,6 +87,9 @@ public final class MultiChatHandler extends AbstractPacketHandler {
                 }
             }
             if (!partyBots.isEmpty()) {
+                // SM NOTE: "buff" in party chat is a command, not conversation - every bot in
+                // the party force-casts its party-buffable kit right away (short cooldown).
+                BotBuffRequestHandler.tryHandlePartyBuffCommand(player, chattext, partyBots);
                 Dispatcher.getInstance().processPartyMessage(new ChatMessage(player, chattext), partyBots);
             }
         } else if (type == 2 && player.getGuildId() > 0) {

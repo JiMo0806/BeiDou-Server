@@ -1,6 +1,8 @@
 package soloMapling.ArtificialPlayer.BotBuffRequestSystem;
 
 import org.gms.client.Character;
+import org.gms.client.Skill;
+import org.gms.client.SkillFactory;
 import org.gms.constants.skills.Assassin;
 import org.gms.constants.skills.Bandit;
 import org.gms.constants.skills.Bishop;
@@ -19,6 +21,7 @@ import org.gms.constants.skills.Paladin;
 import org.gms.constants.skills.Priest;
 import org.gms.constants.skills.Shadower;
 import org.gms.constants.skills.Spearman;
+import org.gms.server.StatEffect;
 import org.gms.server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffConfig;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffEffects;
@@ -30,6 +33,8 @@ import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.server.MethodScheduler;
 
 import java.awt.Point;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +70,20 @@ public final class BotBuffRequestHandler {
 
     // botId -> epoch ms the bot may buff again. Per-bot; covers all buffs and all players.
     private static final Map<Integer, Long> cooldownUntil = new ConcurrentHashMap<>();
+
+    // ── Party "BUFF!" command + new-member rounds ─────────────────────────────
+    // A real player typing "buff" in PARTY chat makes every bot in the party throw its
+    // party-buffable kit right away; the same round fires automatically when a new member
+    // joins (detected poll-side by FollowerBot - parties expose no push events to bots).
+    // Only skills that can actually land on teammates (StatEffect.isPartyBuff) are cast -
+    // the self-only part of a kit (Shadow Partner, Combo, ...) is skipped on purpose.
+    private static final long PARTY_CMD_COOLDOWN_MS = 20_000;  // spam guard for the chat command
+    private static final long PARTY_CMD_MIN_DELAY_MS = 1_500;  // reaction delay window (realness)
+    private static final long PARTY_CMD_MAX_DELAY_MS = 4_000;
+    private static final long ROUND_STAGGER_MS = 750L;         // one buff at a time, in kit order
+
+    // botId -> epoch ms the bot may answer another "BUFF" party command.
+    private static final Map<Integer, Long> partyCmdCooldownUntil = new ConcurrentHashMap<>();
 
     /** A requestable buff and the per-branch skill ids that count as "this buff". */
     private record BuffConcept(String name, int[] skillIds) {}
@@ -263,8 +282,88 @@ public final class BotBuffRequestHandler {
         return lines[ThreadLocalRandom.current().nextInt(lines.length)];
     }
 
+    /**
+     * PARTY chat command: a real player says "buff" (any message containing the word - "buff pls",
+     * the Chinese "jia buff" / "zeng yi", ...) and every bot in the party immediately throws its
+     * party-buffable kit after a short human delay. Real buffs land on same-map nearby
+     * teammates (BotBuffEffects.castBuff), bots-in-range get the cosmetic aura. Cooldown is
+     * per-bot and short - the leader asked for it, so this is a forced cast, not a favor.
+     */
+    public static void tryHandlePartyBuffCommand(Character player, String message, Collection<Character> partyBots) {
+        if (player == null || BotHelpers.isBot(player)) {
+            return; // real players only
+        }
+        if (message == null || message.isBlank() || partyBots == null || partyBots.isEmpty()) {
+            return;
+        }
+        String lower = message.toLowerCase();
+        if (!lower.contains("buff") && !message.contains("增益")) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        for (Character bot : partyBots) {
+            if (bot == null) {
+                continue;
+            }
+            BotSM botSM = CharacterStorage.getBotById(bot.getId());
+            if (botSM != null && botSM.getState() == BotSM.BotState.TRADING) {
+                continue; // never walk out of an active trade for a buff
+            }
+            Long until = partyCmdCooldownUntil.get(bot.getId());
+            if (until != null && now < until) {
+                continue; // already answered a "BUFF!" recently
+            }
+            partyCmdCooldownUntil.put(bot.getId(), now + PARTY_CMD_COOLDOWN_MS);
+            schedulePartyBuffRound(bot, PARTY_CMD_MIN_DELAY_MS, PARTY_CMD_MAX_DELAY_MS);
+        }
+    }
+
+    /**
+     * Make the bot cast every party-buffable skill in its kit, staggered, after a
+     * [min,max] ms human-like delay. Shared by the "BUFF!" party command and the
+     * new-party-member auto round. No-op for jobs without any party buff.
+     */
+    public static void schedulePartyBuffRound(Character bot, long minDelayMs, long maxDelayMs) {
+        if (bot == null) {
+            return;
+        }
+        List<Integer> kit = partyBuffKit(bot);
+        if (kit.isEmpty()) {
+            return;
+        }
+        long delay = ThreadLocalRandom.current().nextLong(minDelayMs, Math.max(minDelayMs, maxDelayMs) + 1);
+        MethodScheduler.runAfterDelay(() -> {
+            if (bot.getMap() == null) {
+                return; // despawned meanwhile
+            }
+            int i = 0;
+            for (int sid : kit) {
+                final int skillId = sid;
+                MethodScheduler.runAfterDelay(() -> BotBuffEffects.castBuff(bot, skillId), i * ROUND_STAGGER_MS);
+                i++;
+            }
+        }, delay);
+    }
+
+    /** The party-buffable subset of the bot's configured kit (self-only buffs excluded). */
+    private static List<Integer> partyBuffKit(Character bot) {
+        List<Integer> out = new ArrayList<>();
+        for (int sid : BotBuffConfig.buffsForJob(bot.getJob())) {
+            Skill skill = SkillFactory.getSkill(sid);
+            if (skill == null) {
+                continue;
+            }
+            StatEffect effect = skill.getEffect(skill.getMaxLevel());
+            if (effect != null && effect.isPartyBuff()) {
+                out.add(sid);
+            }
+        }
+        return out;
+    }
+
     /** Drop a despawned bot's cooldown entry so the map doesn't grow unbounded. */
     public static void clearBot(int botId) {
         cooldownUntil.remove(botId);
+        partyCmdCooldownUntil.remove(botId);
     }
 }
