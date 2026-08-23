@@ -73,7 +73,7 @@ import static soloMapling.BotLogger.log;
 // Map discovery is deterministic from WZ: the bot finds level-appropriate field maps near its spawn
 // town by BFS over the portal graph (TrainingMapFinder + MapMobIndex), reading mob levels straight from
 // Map.wz/Mob.wz. No hand-authored region table; town-locality emerges from hop distance.
-public class TrainingBot extends BotSM implements TrainingBot.CombatTickable {
+public class TrainingBot extends BotSM implements CombatTickable {
 
     // ── Tunables (decoration, not balance — rough is fine) ───────────────────
     // REAL-tier swing/decision cadence (shared ticker). Only OBSERVED grinders do real work here — combatTick
@@ -168,10 +168,7 @@ public class TrainingBot extends BotSM implements TrainingBot.CombatTickable {
     // ── Shared combat ticker (one task for ALL grinding bots) ────────────────
     // Any bot that needs ~250ms combat cadence (TrainingBot grinders, FollowerBot freelancers)
     // registers itself here; one shared task drives them all — no thread per bot.
-    public interface CombatTickable {
-        void onSharedCombatTick();
-    }
-
+    // The interface itself is top-level (CombatTickable.java) to avoid cyclic inheritance.
     private static final Set<CombatTickable> ACTIVE_GRINDERS = ConcurrentHashMap.newKeySet();
     private static volatile boolean combatTickerStarted = false;
 

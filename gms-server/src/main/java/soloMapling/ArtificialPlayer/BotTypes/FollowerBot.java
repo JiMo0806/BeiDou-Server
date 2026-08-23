@@ -42,7 +42,7 @@ import static soloMapling.BotLogger.log;
 // Lifecycle in: SocialBot recruit (party join -> convert), TrainingBot "Follow me!", !bot followbot.
 // Lifecycle out: "Train here with me!" -> TrainingBot (station-here handoff); leader gone past the
 // grace / party dissolved -> TrainingBot on a mob map, SocialBot in a town.
-public class FollowerBot extends BotSM implements TrainingBot.CombatTickable {
+public class FollowerBot extends BotSM implements CombatTickable {
 
     private static final long FOLLOW_TICK_MS = 750;
     private static final long LEADER_LOST_GRACE_MS = 90_000;
