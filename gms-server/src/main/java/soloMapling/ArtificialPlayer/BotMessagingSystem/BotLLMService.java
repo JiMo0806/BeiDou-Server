@@ -191,13 +191,13 @@ public final class BotLLMService {
         boolean lastWhitespace = false;
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
-            if (Character.isHighSurrogate(c) || Character.isLowSurrogate(c)) {
+            if (java.lang.Character.isHighSurrogate(c) || java.lang.Character.isLowSurrogate(c)) {
                 continue; // emoji/生僻字代理对，GBK 编不出，直接丢弃
             }
-            if (c == '\n' || c == '\r' || c == '\t' || Character.getType(c) == Character.CONTROL) {
+            if (c == '\n' || c == '\r' || c == '\t' || java.lang.Character.getType(c) == java.lang.Character.CONTROL) {
                 continue;
             }
-            if (Character.isWhitespace(c)) {
+            if (java.lang.Character.isWhitespace(c)) {
                 if (!lastWhitespace) {
                     sb.append(' ');
                     lastWhitespace = true;
