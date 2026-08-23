@@ -26,8 +26,11 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   llm_api_url     接口地址，换模型服务商只改这里
  *   llm_model       模型名称
  *   llm_api_key     API Key
- *   llm_timeout_ms  单次请求超时（毫秒），默认 5000
+ *   llm_timeout_ms  单次请求超时（毫秒），默认 20000
  * 修改后重启服务端生效。
+ *
+ * 实测 NVIDIA 接口（minimax-m3）带多轮历史的延迟在 8~25 秒之间，且连续快速请求会被
+ * 429 限流——所以超时默认值必须够大，且所有请求经全局节流串行发出（见 API_GATE）。
  *
  * 会话记忆按 bot 保存最近几轮（玩家告别/重置对话时由 SocialBot 清空），另有按 bot 的
  * 调用冷却防止刷屏烧配额。所有调用都发生在 bot 的虚拟线程上，阻塞不影响其他 bot。
@@ -71,8 +74,15 @@ public final class BotLLMService {
     // calling the API entirely for a while and go straight to local lines.
     private static final int CIRCUIT_FAILURE_THRESHOLD = 3;
     private static final long CIRCUIT_COOLDOWN_MS = 10 * 60 * 1000; // 10 min
-    private static final AtomicInteger CONSECUTIVE_FAILURES = new AtomicInteger(0);
+    private static final AtomicInteger CONSECUTIVE_FAILURES = new AtomicInteger();
     private static volatile long CIRCUIT_OPEN_UNTIL = 0;
+
+    // SM NOTE: 全局请求闸门——实测这个接口连续快速请求会直接 429（Too Many Requests），
+    // 而 429 又会喂熔断器导致全服 bot 沦为内置台词。所有 API 调用在这里串行 + 保持
+    // 最小间隔发出，宁可排队慢一点也不触发限流。
+    private static final java.util.concurrent.Semaphore API_GATE = new java.util.concurrent.Semaphore(1);
+    private static final long GLOBAL_MIN_GAP_MS = 1200; // ~50 请求/分钟
+    private static volatile long lastApiSentAt = 0;
 
     private BotLLMService() {
     }
@@ -172,12 +182,12 @@ public final class BotLLMService {
             String url = BotConfigFile.getString("llm_api_url", DEFAULT_API_URL);
             String model = BotConfigFile.getString("llm_model", DEFAULT_MODEL);
             String apiKey = BotConfigFile.getString("llm_api_key", DEFAULT_API_KEY);
-            int timeoutMs = BotConfigFile.getInt("llm_timeout_ms", 5000);
+            int timeoutMs = BotConfigFile.getInt("llm_timeout_ms", 20000);
 
             ObjectNode root = MAPPER.createObjectNode();
             root.put("model", model);
             root.put("temperature", 0.9);
-            root.put("max_tokens", 100);
+            root.put("max_tokens", 80);
             ArrayNode messages = root.putArray("messages");
             ObjectNode system = messages.addObject();
             system.put("role", "system");
@@ -192,7 +202,7 @@ public final class BotLLMService {
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(MAPPER.writeValueAsString(root)))
                     .build();
-            HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> resp = sendGated(req);
             if (resp.statusCode() != 200) {
                 onApiFailure("HTTP " + resp.statusCode());
                 return null;
@@ -215,12 +225,28 @@ public final class BotLLMService {
         }
     }
 
+    // SM NOTE: 全局闸门发送：串行排队 + 请求间最小间隔，防止连发触发 429 限流。
+    // 排队等待不占任何真实线程（调用方都是虚拟线程），只影响回复速度。
+    private static HttpResponse<String> sendGated(HttpRequest req) throws Exception {
+        API_GATE.acquire();
+        try {
+            long gap = GLOBAL_MIN_GAP_MS - (System.currentTimeMillis() - lastApiSentAt);
+            if (gap > 0) {
+                Thread.sleep(gap);
+            }
+            lastApiSentAt = System.currentTimeMillis();
+            return HTTP.send(req, HttpResponse.BodyHandlers.ofString());
+        } finally {
+            API_GATE.release();
+        }
+    }
+
     private static String request(String botName, String playerName, String mapName, String userMessage, Deque<String[]> history)
             throws Exception {
         String url = BotConfigFile.getString("llm_api_url", DEFAULT_API_URL);
         String model = BotConfigFile.getString("llm_model", DEFAULT_MODEL);
         String apiKey = BotConfigFile.getString("llm_api_key", DEFAULT_API_KEY);
-        int timeoutMs = BotConfigFile.getInt("llm_timeout_ms", 5000);
+        int timeoutMs = BotConfigFile.getInt("llm_timeout_ms", 20000);
 
         // 先把玩家这条消息记进历史（先加后发：请求失败时历史里最多多一条没被回应的话，无害）
         append(history, "user", userMessage);
@@ -228,7 +254,7 @@ public final class BotLLMService {
         ObjectNode root = MAPPER.createObjectNode();
         root.put("model", model);
         root.put("temperature", 0.8);
-        root.put("max_tokens", 200);
+        root.put("max_tokens", 120); // 输出越短越快：这个接口 200 tokens 能拖到 20 秒以上
         ArrayNode messages = root.putArray("messages");
         ObjectNode system = messages.addObject();
         system.put("role", "system");
@@ -250,7 +276,7 @@ public final class BotLLMService {
         long t0 = System.currentTimeMillis();
         HttpResponse<String> resp;
         try {
-            resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
+            resp = sendGated(req);
         } catch (java.net.http.HttpTimeoutException e) {
             System.out.println("[BotLLMService] 请求超时（" + timeoutMs + "ms，模型: " + model + "），本次不回复");
             throw e;
