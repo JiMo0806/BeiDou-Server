@@ -38,8 +38,10 @@ import static soloMapling.ArtificialPlayer.BotGeneration.createBotPollReadiness;
 import static soloMapling.ArtificialPlayer.BotHelpers.isBot;
 import static soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.checkIfRespondant;
 import static soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getBotById;
+import static soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.botCancelChair;
 import static soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.botFaceTowardsPoint;
 import static soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.botSitChair;
+import soloMapling.ArtificialPlayer.BotTypes.SocialBot;
 import static soloMapling.ArtificialPlayer.BotTypeManager.setAndStartBots;
 import static soloMapling.DebugUtilities.debugprint;
 import static soloMapling.DebugUtilities.fmt;
@@ -215,6 +217,16 @@ public class EnvironmentManager {
             townTasks.add(() -> spawnTown(town));
         }
         runWave(9, "Town presence", townTasks);
+
+        // World travelers: retype a share of the Henesys stationed crowd into TRAINING_BOTs. Their
+        // levels were rolled coherent (10-80) at decoration time, so TrainingBot's WZ map discovery
+        // sends each one to level-appropriate field maps within its own travel radius - low levels
+        // grind the Victoria starter fields, high levels reach the Ant Tunnel / dungeon belts - and
+        // they periodically return to their Henesys home to restock. Henesys stops reading as the
+        // one overpopulated plaza and starts reading as the busy hub of a living world.
+        runWave(10, "Henesys world travelers", List.of(
+                () -> convertHenesysFillersToTravelers()
+        ));
 
         BotDecorationQueue.start();
         BotEquipChecker.start();
@@ -846,6 +858,47 @@ public class EnvironmentManager {
         } else {
             debugprint("Failed to retrieve BlackjackDealerBot from CharacterStorage");
         }
+    }
+
+    // A share of the Henesys ambient crowd are secretly grinders: retype them as TRAINING_BOTs so
+    // they leave the market/park on their own, travel to the level-appropriate field maps their
+    // level can reach (WZ discovery from their Henesys home), grind, and periodically warp back to
+    // town to restock - Henesys stays lively as the returning hub while the world fills up.
+    // Only plain filler SocialBots are eligible: gacha / drop-game / JQ / host bots keep their roles.
+    private static final double TRAVELER_SHARE = 0.45;
+
+    public static void convertHenesysFillersToTravelers() {
+        int[] maps = { HENESYS, HENESYS_MARKET, HENESYS_PARK, HENESYS_POTION_SHOP, HENESYS_GAME_ZONE, HENESYS_PET_PARK };
+        int total = 0;
+        for (int mapId : maps) {
+            List<Character> allChars = getAllCharsOnMap(mapId);
+            List<Integer> convertible = allChars.stream()
+                    .filter(chr -> {
+                        if (!isBot(chr)) return false;
+                        BotSM bot = getBotById(chr.getId());
+                        return bot instanceof SocialBot && bot.isAvailableForAmbientActions();
+                    })
+                    .map(Character::getId)
+                    .collect(Collectors.toList());
+
+            Collections.shuffle(convertible);
+            int toConvert = (int) Math.round(convertible.size() * TRAVELER_SHARE);
+            if (toConvert <= 0) {
+                continue;
+            }
+            List<Integer> selected = convertible.subList(0, toConvert);
+            // Stand them up first: a chair state would glue the fresh traveler to its seat
+            for (Integer id : selected) {
+                Character chr = BotHelpers.getCharFromChannelStorage(id);
+                if (chr != null && chr.getChair() > 0) {
+                    botCancelChair(chr);
+                }
+            }
+            setAndStartBots(selected, BotTypeManager.BotType.TRAINING_BOT);
+            total += toConvert;
+        }
+        System.out.println(String.format(
+                "[EnvironmentManager] Converted %d Henesys filler bots to world travelers", total));
     }
 
     public static void convertRandomFillersToScrollBots() {
