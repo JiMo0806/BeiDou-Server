@@ -11,6 +11,7 @@ import soloMapling.FreeMarket.FMEquip;
 import soloMapling.FreeMarket.FMItem;
 import soloMapling.server.BotTiming;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotEmote;
@@ -58,10 +59,11 @@ public class BotTradeSM {
     private TradeMode tradeMode = TradeMode.NULL;
     private Trade.TradeResult lastTradeResult = null;
 
-    // 议价状态：底价（低于就免谈）、已还价次数、上次还价时间
+    // 议价状态：底价（低于就免谈）、已还价次数、上次还价时间、玩家最近一次口头报价
     private int floorPrice = 0;
     private int haggles = 0;
     private long lastCounterMs = 0;
+    private int lastPlayerOffer = 0;
     private static final int MAX_HAGGLES = 3;
     private static final long COUNTER_INTERVAL_MS = 3000;
 
@@ -543,6 +545,11 @@ public class BotTradeSM {
             return;
         }
 
+        // 玩家点名要某件东西：材料/药水按名字匹配，便宜的可能直接白送
+        if (handleItemRequest(msg)) {
+            return;
+        }
+
         Integer price = parsePrice(msg);
         if (price != null && looksLikeOffer(msg, price) && isSelling() && floorPrice > 0
                 && st != TradeState.CONFIRMED_LOCKED) {
@@ -550,6 +557,82 @@ public class BotTradeSM {
             return;
         }
         chatSmallTalk(player, msg);
+    }
+
+    // ── 指定物品询问：玩家点名要某件东西 ────────────────────────────────
+    // "你有猪皮吗" / "来瓶矿泉水" —— 在材料（ETC）和药水池里按物品名匹配。
+    // 只有 bot 侧还没上架任何东西时才接单（交易中途不换货）。匹配到之后：
+    // - 便宜的小材料（行情 <= 5 万）打怪攒得多，一半概率直接白送；
+    // - 有行情的正常上货开价，仍走议价。
+    private boolean handleItemRequest(String msg) {
+        TradeState st = getTradeState();
+        if (st == TradeState.CONFIRMED_LOCKED || st == TradeState.CONFIRMING || st == TradeState.COMPLETED) {
+            return false;
+        }
+        List<Item> posted = BotTradeCommands.getLocalItems(getChr());
+        if (posted != null && !posted.isEmpty()) {
+            return false; // 已经带着货了，别在交易中途换货
+        }
+        // 名字匹配：优先最长的物品名（"蓝蘑菇胶囊"不能被"蘑菇"抢走）
+        FMItem match = null;
+        String matchName = null;
+        for (FMItem cand : itemRequestPool()) {
+            if (cand == null) {
+                continue;
+            }
+            String name = convertItemIdToName(cand.getItemId());
+            if (name == null || name.length() < 2 || !msg.contains(name)) {
+                continue;
+            }
+            if (matchName == null || name.length() > matchName.length()) {
+                match = cand;
+                matchName = name;
+            }
+        }
+        if (match == null) {
+            return false; // 没点名任何认识的物品，交给议价/闲聊
+        }
+        Item item = generateItem(match.getItemId(), 1, 1);
+        if (item == null) {
+            return false;
+        }
+        Integer rawValue = getItemMarketValue(item);
+        int market = rawValue == null ? 0 : rawValue;
+        // 打怪攒的小材料：便宜 + 一半概率 → 慷慨白送（mesoWanted=0，玩家放点啥都成交）
+        if (market > 0 && market <= 50000 && random.nextInt(2) == 0) {
+            Integer slot = BotTradeCommands.getRandomEmptySlot(getChr());
+            if (slot == null) {
+                return false;
+            }
+            BotTradeCommands.addItemToTrade(getChr(), match.getItemId(), 1, slot);
+            getParent().getTradeWants().resetTradeWants();
+            getParent().getTradeWants().setMesoWanted(0);
+            this.tradeMode = TradeMode.SELLING; // 让 WAITING_RESPONSE 走"出价足够即成交"分支
+            final String name = matchName;
+            BotTiming.afterRandom(700, 1500, () -> BotTradeCommands.writeTradeChat(getChr(),
+                    "「" + name + "」我有！打怪攒了一堆，送你了，随便放点东西意思意思就行"));
+            debugprint("itemRequest gift: " + getChr().getName() + " gives " + name + " for free");
+            return true;
+        }
+        // 正常上货定价（沿用 stockItemForSale 的行情开价/底价），随后把货摆进窗口
+        if (stockItemForSale(item, match.getItemId())) {
+            postItemsForSale();
+            final String name = matchName;
+            int ask = getParent().getTradeWants().getMesoWanted();
+            BotTiming.afterRandom(700, 1500, () -> BotTradeCommands.writeTradeChat(getChr(),
+                    "「" + name + "」正好有货，给你上了！开价 " + formatPriceToShorthand(ask) + "，可以小刀"));
+            debugprint("itemRequest stock: " + getChr().getName() + " stocks " + name + " ask=" + ask);
+            return true;
+        }
+        return false;
+    }
+
+    // 可被点名购买的池：怪物材料 + 药水（打怪场景最常见的"你有 XX 吗"）
+    private static List<FMItem> itemRequestPool() {
+        List<FMItem> pool = new ArrayList<>();
+        pool.addAll(generateETCList("A"));
+        pool.addAll(generatePotionsList("S"));
+        return pool;
     }
 
     // 口头报价识别：聊天里的数字绝大多数不是报价——"666"是捧场，"1小时了？"是抱怨，
@@ -593,9 +676,11 @@ public class BotTradeSM {
         return (int) best;
     }
 
-    // 玩家口头报价：达到开价直接催成交；过底价各让一步；低于底价礼貌拒绝
+    // 玩家口头报价 → 双向议价：玩家还价有机会被直接吃下，而不是每次都由 bot 让价再报价
     private void negotiateFromChat(Character player, int price) {
         int asking = getParent().getTradeWants().getMesoWanted();
+        boolean raised = price > lastPlayerOffer; // 玩家主动往上加了价（诚意）
+        lastPlayerOffer = price;
         if (price >= asking) {
             BotTiming.afterRandom(600, 1400, () ->
                     BotTradeCommands.writeTradeChat(getChr(), "这个价可以！把钱放上来点确认就行"));
@@ -608,14 +693,23 @@ public class BotTradeSM {
                             "太低啦，" + formatPriceToShorthand(hint) + " 以下我真的没法卖"));
             return;
         }
-        // 底价~开价之间：还有还价次数就各让一步，否则咬死底价
-        int target;
-        if (haggles < MAX_HAGGLES) {
-            target = Math.max(floorPrice, price + (asking - price) * 2 / 3);
-            haggles++;
-        } else {
-            target = Math.max(floorPrice, asking - (asking - floorPrice) / 4);
+        // 底价之上：玩家加价了 / 还价次数用完 / 三成概率豪爽 → 直接口头成交玩家的价
+        // （mesoWanted 直接降到玩家的报价，玩家把钱放上来即可锁单）
+        if (raised || haggles >= MAX_HAGGLES || random.nextInt(10) < 3) {
+            getParent().getTradeWants().setMesoWanted(price);
+            String[] accepts = {
+                    "行吧行吧，就按你说的 " + formatPriceToShorthand(price) + "，成交！",
+                    "你真会砍价……" + formatPriceToShorthand(price) + " 就 " + formatPriceToShorthand(price) + " 吧！",
+                    "遇到你算我倒霉，" + formatPriceToShorthand(price) + " 拿走！",
+            };
+            String line = accepts[random.nextInt(accepts.length)];
+            BotTiming.afterRandom(600, 1400, () -> BotTradeCommands.writeTradeChat(getChr(), line));
+            debugprint("negotiateFromChat: " + getChr().getName() + " accepts player offer " + price);
+            return;
         }
+        // 否则还价：从"偏卖方 2/3"改为真·各让一步的中间价，还价更贴合玩家的锚点
+        int target = Math.max(floorPrice, (price + asking) / 2);
+        haggles++;
         if (target >= asking) {
             target = Math.max(floorPrice, asking - 1);
         }
