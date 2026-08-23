@@ -18,6 +18,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static soloMapling.ArtificialPlayer.BotClientHandler.getBotClient;
+import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotEmote;
 import static soloMapling.ArtificialPlayer.BotCommandsPack.WarpCommands.botEnterPortalDropDown;
 import static soloMapling.ArtificialPlayer.BotDecoratorSystem.BotDecorate.setBotVariables;
 import static soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.microTurnAroundToLeft;
@@ -247,7 +248,9 @@ public class BotGeneration {
             if (fakechar.getMap() != null
                     && soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(fakechar.getMapId())) {
                 BotEmote(fakechar, 7);
-                BotSpeak(fakechar, "我先下了，回头见！");
+                BotReactionFlavor.speakFlavor(fakechar,
+                        "（旁白：你正要下线，说一句简短的告别，不超过10个字）",
+                        new String[]{"我先下了，回头见！", "下了，拜拜！", "先走啦，下次再玩！"});
             }
         } catch (Exception ignored) {
             // departure garnish must never block the actual removal
