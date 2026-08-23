@@ -117,8 +117,25 @@ public class SocialCommands {
         chr.getClient().sendPacket(PacketCreator.enableActions());
     }
 
+    // SM NOTE: 点名/对话掉线根因——这个清除包在玩家每次发文字时都会触发（Dispatcher 在
+    // 玩家是 respondant 时就调这里），sendHint(".") 会弹出一个 hint 窗，恰好打断玩家正在
+    // 输入的状态；老客户端处理"输入中突遭弹窗"很脆弱，表现就是有几率黑屏/卡死/掉线。
+    // 菜单气泡本来就会被下一个 hint 包自然覆盖，根本不需要手动清除。这里改为只发
+    // enableActions() 复位行动状态，不再弹 hint 窗，并对同一玩家做 1.2 秒防抖，
+    // 连发消息也不会重复轰炸客户端。
+    private static final java.util.Map<Integer, Long> expireHintDebounce = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long EXPIRE_HINT_DEBOUNCE_MS = 1200;
+
     public static void expirePlayerChatCommands(Character chr) {
-        chr.getClient().sendPacket(PacketCreator.sendHint(".", 40, 0));
+        if (chr == null || chr.getClient() == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        Long prev = expireHintDebounce.get(chr.getId());
+        if (prev != null && now - prev < EXPIRE_HINT_DEBOUNCE_MS) {
+            return; // 防抖：连发的文字不再逐个触发清除包
+        }
+        expireHintDebounce.put(chr.getId(), now);
         chr.getClient().sendPacket(PacketCreator.enableActions());
     }
 
