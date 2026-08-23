@@ -320,6 +320,13 @@ public class SocialBot extends BotSM {
                 if (variant == SocialBotVariant.SINGLE_RESPONSE) {
                     appendSingleResponse(chain, player);
                 } else {
+                    // SM NOTE: 点名后立即可接话——打招呼链开头有 2-4 秒的"人性化"pause（玩家一
+                    // 点完名就会立刻打字），而 AWAITING_CHOICE 原本要等链播完才设置，玩家点完名
+                    // 马上发来的第一条文字会命中 handlePlayerMessage 的 AWAITING_CHOICE 判断，
+                    // 状态还是 IDLE_AMBIENT → 消息被吞，bot 完全不理（这就是"发文字没理我"）。
+                    // 这里在启动链之前同步先置为 AWAITING_CHOICE，玩家的第一句话就能正常接住；
+                    // 链末尾原有的重复置位留着无害，打招呼的节拍不受影响。
+                    socialState = SocialBotState.AWAITING_CHOICE;
                     appendGreeting(chain, player);
                 }
                 break;
