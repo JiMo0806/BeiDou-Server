@@ -110,7 +110,19 @@ public final class BotLLMService {
      * 让 bot 用大模型回复玩家的一句话。返回 null 表示不可用/失败，调用方回落本地台词。
      */
     public static String chat(int botId, Character bot, String playerName, String mapName, String userMessage) {
-        if (!ready(botId)) {
+        return chat(botId, bot, playerName, mapName, userMessage, false);
+    }
+
+    /**
+     * 同上，ignoreCooldown=true 跳过 3 秒冷却——给交易窗口这种一对一高频对话用：
+     * 玩家在交易里连发几条，不能第二条起就变成固定台词。
+     */
+    public static String chat(int botId, Character bot, String playerName, String mapName,
+                              String userMessage, boolean ignoreCooldown) {
+        if (!isEnabled() || System.currentTimeMillis() < CIRCUIT_OPEN_UNTIL) {
+            return null;
+        }
+        if (!ignoreCooldown && !ready(botId)) {
             return null;
         }
         LAST_CALL.put(botId, System.currentTimeMillis());

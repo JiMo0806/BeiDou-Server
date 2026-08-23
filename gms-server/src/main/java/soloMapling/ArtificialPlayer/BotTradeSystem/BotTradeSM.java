@@ -544,11 +544,35 @@ public class BotTradeSM {
         }
 
         Integer price = parsePrice(msg);
-        if (price != null && isSelling() && floorPrice > 0 && st != TradeState.CONFIRMED_LOCKED) {
+        if (price != null && looksLikeOffer(msg, price) && isSelling() && floorPrice > 0
+                && st != TradeState.CONFIRMED_LOCKED) {
             negotiateFromChat(player, price);
             return;
         }
         chatSmallTalk(player, msg);
+    }
+
+    // 口头报价识别：聊天里的数字绝大多数不是报价——"666"是捧场，"1小时了？"是抱怨，
+    // "3个一起卖吗"问的是数量。只有带上价格意图（万/w 后缀、买卖关键词、或裸报一个
+    // 够大的金币数）才走议价，其余一律交给 LLM 正常接话。
+    private static boolean looksLikeOffer(String msg, long price) {
+        if (msg.matches(".*\\d(?:\\.\\d+)?\\s*[万wW].*")) {
+            return true; // "50万""300w" —— 明确的价格写法
+        }
+        if (msg.matches(".*[买卖收出价金].*")) {
+            return true; // "3000卖不卖""500金出吗" —— 有交易意图词
+        }
+        return price >= 100000; // 裸数字但大到只可能是金币报价（"给我2000000"）
+    }
+
+    // 给 LLM 的交易语境：按买/卖方向描述，模型才知道自己在干嘛
+    private String tradeContext() {
+        if (isSelling()) {
+            int asking = getParent().getTradeWants().getMesoWanted();
+            return "交易窗口内对话，bot 是卖家，正在卖货开价 " + formatPriceToShorthand(asking) + " 金币";
+        }
+        int offering = getParent().getTradeWants().getMesoOffering();
+        return "交易窗口内对话，bot 是买家，想出 " + formatPriceToShorthand(Math.max(offering, 0)) + " 金币收玩家手里的东西";
     }
 
     // 从聊天里抠出价格：支持"50万""500000""50 w"等写法
@@ -617,16 +641,15 @@ public class BotTradeSM {
     // 交易窗口闲聊：走 LLM（带交易语境），失败或未启用回落本地台词
     private void chatSmallTalk(Character player, String msg) {
         Character bot = getChr();
-        if (soloMapling.ArtificialPlayer.BotMessagingSystem.BotLLMService.ready(bot.getId())) {
+        if (soloMapling.ArtificialPlayer.BotMessagingSystem.BotLLMService.isEnabled()) {
             String mapName = bot.getMap().getMapName();
-            String userMsg = "[交易窗口内对话，bot 正在卖货开价 " + formatPriceToShorthand(getParent().getTradeWants().getMesoWanted())
-                    + " 金币] " + msg;
+            String userMsg = "[" + tradeContext() + "] " + msg;
             Thread.ofVirtual().name("bot-tradechat-" + bot.getId()).start(() -> {
                 String reply = null;
                 try {
                     Thread.sleep(500 + random.nextInt(800)); // 别秒回，像人在打字
                     reply = soloMapling.ArtificialPlayer.BotMessagingSystem.BotLLMService.chat(
-                            bot.getId(), bot, player.getName(), mapName, userMsg);
+                            bot.getId(), bot, player.getName(), mapName, userMsg, true);
                 } catch (Exception e) {
                     debugprint("tradechat llm error: " + e.getMessage());
                 }
