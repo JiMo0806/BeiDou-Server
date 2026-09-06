@@ -59,12 +59,12 @@ public class BotTradeSM {
     private TradeMode tradeMode = TradeMode.NULL;
     private Trade.TradeResult lastTradeResult = null;
 
-    // 议价状态：底价（低于就免谈）、已还价次数、上次还价时间、玩家最近一次口头报价
+    // 议价状态：底价（低于就免谈）、已还价次数、上次还价时间
     private int floorPrice = 0;
     private int haggles = 0;
     private long lastCounterMs = 0;
-    private int lastPlayerOffer = 0;
     private static final int MAX_HAGGLES = 3;
+    private int lastPlayerOffer = 0;
     private static final long COUNTER_INTERVAL_MS = 3000;
 
     // 交易收尾的本地台词池（LLM 不可用/未启用时的回落，行为与之前完全一致）
